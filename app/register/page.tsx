@@ -30,7 +30,7 @@ interface HostData {
 interface ListingData {
   title: string
   address: string
-  weeklyRent: number
+  monthlyRent: number
   deposit_price: number
   minContractWeeks: number
   imageUrls: string[]
@@ -51,7 +51,7 @@ export default function RegisterPage() {
   const [listingData, setListingData] = useState<ListingData>({
     title: '',
     address: '',
-    weeklyRent: 0,
+    monthlyRent: 0,
     deposit_price: 0,
     minContractWeeks: 0,
     imageUrls: [],
@@ -154,7 +154,7 @@ export default function RegisterPage() {
           host_id: host.id,
           title: listingData.title,
           address: listingData.address,
-          weekly_rent: listingData.weeklyRent,
+          monthly_rent: listingData.monthlyRent,
           deposit_price: listingData.deposit_price,
           contract_min_weeks: listingData.minContractWeeks,
           images: imageUrls,
@@ -281,15 +281,15 @@ export default function RegisterPage() {
             
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="weeklyRent">주 단위 임대료 (원) *</Label>
+                <Label htmlFor="monthlyRent">월 임대료 (원) *</Label>
                 <Input
-                  id="weeklyRent"
+                  id="monthlyRent"
                   type="number"
                   required
                   min="0"
-                  value={listingData.weeklyRent || ''}
-                  onChange={(e) => setListingData({ ...listingData, weeklyRent: parseInt(e.target.value) || 0 })}
-                  placeholder="100000"
+                  value={listingData.monthlyRent || ''}
+                  onChange={(e) => setListingData({ ...listingData, monthlyRent: parseInt(e.target.value) || 0 })}
+                  placeholder="500000"
                 />
               </div>
               
