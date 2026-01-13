@@ -169,7 +169,7 @@ export default function RegisterPage() {
       
       // 5. 2초 후 메인 화면으로 이동
       setTimeout(() => {
-        router.push('/')
+        router.replace('/')
       }, 2000)
       
     } catch (error) {
