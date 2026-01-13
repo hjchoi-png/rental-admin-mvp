@@ -157,7 +157,7 @@ export default function RegisterPage() {
           weekly_rent: listingData.weeklyRent,
           deposit_price: listingData.deposit_price,
           min_contract_weeks: listingData.minContractWeeks,
-          image_urls: imageUrls,
+          images: imageUrls,
         })
       
       if (listingError) {
