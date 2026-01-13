@@ -167,9 +167,9 @@ export default function RegisterPage() {
       // 4. 성공 알림 표시
       setShowSuccessAlert(true)
       
-      // 5. 2초 후 메인 화면으로 이동
+      // 5. 2초 후 관리자 페이지로 이동
       setTimeout(() => {
-        router.replace('/')
+        router.push('/admin')
       }, 2000)
       
     } catch (error) {
