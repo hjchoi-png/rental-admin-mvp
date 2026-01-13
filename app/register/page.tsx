@@ -31,7 +31,7 @@ interface ListingData {
   title: string
   address: string
   weeklyRent: number
-  deposit: number
+  deposit_price: number
   minContractWeeks: number
   imageUrls: string[]
 }
@@ -52,7 +52,7 @@ export default function RegisterPage() {
     title: '',
     address: '',
     weeklyRent: 0,
-    deposit: 0,
+    deposit_price: 0,
     minContractWeeks: 0,
     imageUrls: [],
   })
@@ -155,7 +155,7 @@ export default function RegisterPage() {
           title: listingData.title,
           address: listingData.address,
           weekly_rent: listingData.weeklyRent,
-          deposit: listingData.deposit,
+          deposit_price: listingData.deposit_price,
           min_contract_weeks: listingData.minContractWeeks,
           image_urls: imageUrls,
         })
@@ -294,14 +294,14 @@ export default function RegisterPage() {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="deposit">보증금 (원) *</Label>
+                <Label htmlFor="deposit_price">보증금 (원) *</Label>
                 <Input
-                  id="deposit"
+                  id="deposit_price"
                   type="number"
                   required
                   min="0"
-                  value={listingData.deposit || ''}
-                  onChange={(e) => setListingData({ ...listingData, deposit: parseInt(e.target.value) || 0 })}
+                  value={listingData.deposit_price || ''}
+                  onChange={(e) => setListingData({ ...listingData, deposit_price: parseInt(e.target.value) || 0 })}
                   placeholder="5000000"
                 />
               </div>
