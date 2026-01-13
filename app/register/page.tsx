@@ -23,7 +23,7 @@ import { supabase } from '@/utils/supabase/client'
 
 interface HostData {
   name: string
-  contact: string
+  phone: string
   email: string
 }
 
@@ -44,7 +44,7 @@ export default function RegisterPage() {
   
   const [hostData, setHostData] = useState<HostData>({
     name: '',
-    contact: '',
+    phone: '',
     email: '',
   })
   
@@ -137,7 +137,7 @@ export default function RegisterPage() {
         .from('hosts')
         .insert({
           name: hostData.name,
-          contact: hostData.contact,
+          phone: hostData.phone,
           email: hostData.email,
         })
         .select()
@@ -213,13 +213,13 @@ export default function RegisterPage() {
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="contact">연락처 *</Label>
+              <Label htmlFor="phone">연락처 *</Label>
               <Input
-                id="contact"
+                id="phone"
                 type="tel"
                 required
-                value={hostData.contact}
-                onChange={(e) => setHostData({ ...hostData, contact: e.target.value })}
+                value={hostData.phone}
+                onChange={(e) => setHostData({ ...hostData, phone: e.target.value })}
                 placeholder="010-0000-0000"
                 pattern="[0-9]{3}-[0-9]{4}-[0-9]{4}"
               />
