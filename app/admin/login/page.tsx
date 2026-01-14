@@ -1,7 +1,4 @@
-'use client'
-
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { login } from './actions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -12,42 +9,12 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { supabase } from '@/utils/supabase/client'
 
-export default function LoginPage() {
-  const router = useRouter()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState('')
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
-    setError('')
-
-    try {
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-
-      if (signInError) {
-        throw signInError
-      }
-
-      if (data.user) {
-        // 로그인 성공 시 /admin으로 이동
-        router.push('/admin')
-        router.refresh()
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '로그인에 실패했습니다.')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: { error?: string }
+}) {
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
@@ -58,23 +25,20 @@ export default function LoginPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
-                {error}
-              </div>
-            )}
-            
+          {searchParams.error && (
+            <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md mb-4">
+              {searchParams.error}
+            </div>
+          )}
+          <form action={login} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">이메일</Label>
               <Input
                 id="email"
+                name="email"
                 type="email"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
                 placeholder="admin@example.com"
-                disabled={isLoading}
               />
             </div>
             
@@ -82,17 +46,15 @@ export default function LoginPage() {
               <Label htmlFor="password">비밀번호</Label>
               <Input
                 id="password"
+                name="password"
                 type="password"
                 required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
                 placeholder="비밀번호를 입력하세요"
-                disabled={isLoading}
               />
             </div>
             
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? '로그인 중...' : '로그인'}
+            <Button type="submit" className="w-full">
+              로그인
             </Button>
           </form>
         </CardContent>
