@@ -14,6 +14,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/utils/supabase/client'
+import { signOut } from '@/app/auth/actions'
 
 interface Host {
   id: string
@@ -161,7 +162,14 @@ export default function AdminPage() {
 
   return (
     <div className="container mx-auto py-8 px-4">
-      <h1 className="text-3xl font-bold mb-8">관리자 대시보드</h1>
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold">관리자 대시보드</h1>
+        <form action={signOut}>
+          <Button type="submit" variant="outline">
+            로그아웃
+          </Button>
+        </form>
+      </div>
       
       <div className="border rounded-lg">
         <Table>
