@@ -164,13 +164,20 @@ export default function RegisterPage() {
         throw new Error(`매물 정보 저장 실패: ${listingError.message}`)
       }
       
-      // 4. 성공 알림 표시
-      setShowSuccessAlert(true)
+      // 4. listings 테이블의 전체 데이터 개수 조회
+      const { count, error: countError } = await supabase
+        .from('listings')
+        .select('*', { count: 'exact', head: true })
       
-      // 5. 2초 후 관리자 페이지로 이동
-      setTimeout(() => {
-        router.push('/admin')
-      }, 2000)
+      if (countError) {
+        console.error('개수 조회 실패:', countError)
+        // 개수 조회 실패해도 성공 페이지로 이동 (기본값 1 사용)
+        router.push('/register/success?count=1')
+        return
+      }
+      
+      // 5. 성공 페이지로 이동
+      router.push(`/register/success?count=${count || 1}`)
       
     } catch (error) {
       alert(error instanceof Error ? error.message : '등록 중 오류가 발생했습니다.')
