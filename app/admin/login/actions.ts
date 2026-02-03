@@ -19,9 +19,8 @@ export async function login(formData: FormData) {
   })
 
   if (error) {
-    // 에러나면 리다이렉트 하지 않고 에러 메시지 반환
     console.error('로그인 에러:', error.message)
-    return { error: error.message }
+    redirect('/admin/login?error=' + encodeURIComponent(error.message))
   }
 
   // 4. 로그인 성공 시 캐시 날리기
