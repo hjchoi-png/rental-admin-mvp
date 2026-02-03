@@ -29,8 +29,26 @@ export async function updateSession(request: NextRequest) {
         },
       }
     )
-    // 3. 사용자 세션 새로고침 (중요)
-    await supabase.auth.getUser()
+
+    // 사용자 세션 확인
+    const { data: { user } } = await supabase.auth.getUser()
+
+    // /admin 경로 보호 (로그인 페이지 제외)
+    const isAdminRoute = request.nextUrl.pathname.startsWith('/admin')
+    const isLoginPage = request.nextUrl.pathname === '/admin/login'
+
+    if (isAdminRoute && !isLoginPage && !user) {
+      // 로그인 안 된 상태로 어드민 접근 시 로그인 페이지로 리다이렉트
+      const loginUrl = new URL('/admin/login', request.url)
+      return NextResponse.redirect(loginUrl)
+    }
+
+    // 이미 로그인된 상태로 로그인 페이지 접근 시 대시보드로 리다이렉트
+    if (isLoginPage && user) {
+      const adminUrl = new URL('/admin', request.url)
+      return NextResponse.redirect(adminUrl)
+    }
+
     return response
   } catch (e) {
     // 에러 발생 시에도 앱이 멈추지 않게 기본 응답 반환
