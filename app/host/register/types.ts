@@ -112,10 +112,9 @@ export const registerSchema = z.object({
   floorNumber: z.number().optional(),
   floorType: z.string().optional(), // '반지하' | '옥탑방' | null
   buildingType: z.string().min(1, "건물 유형을 선택해주세요"),
-  roomCount: z.number({ error: "방 개수를 입력해주세요" }).min(1, "방은 최소 1개 이상 필요합니다").max(10),
-  bathroomCount: z.number().min(0).max(10).default(0),
-  kitchenCount: z.number().min(0).max(10).default(0),
-  livingRoomCount: z.number().min(0).max(10).default(0),
+  roomCount: z.number({ required_error: "방 개수를 입력해주세요" }).min(1, "방은 최소 1개 이상 필요합니다").max(10),
+  bathroomCount: z.number({ required_error: "화장실 개수를 입력해주세요" }).min(1, "화장실은 최소 1개 이상 필요합니다").max(10),
+  kitchenCount: z.number({ required_error: "주방 개수를 입력해주세요" }).min(1, "주방은 최소 1개 이상 필요합니다").max(10),
   areaSqm: z.number().min(1, "면적을 입력해주세요").max(3305.785).optional(),
   areaPyeong: z.number().optional(),
   areaUnit: z.enum(["평", "㎡"]).default("㎡"),
@@ -175,7 +174,7 @@ export type RegisterFormData = z.infer<typeof registerSchema>
 
 // 스텝별 필드 매핑 (trigger 검증용)
 export const STEP_FIELDS: Record<number, (keyof RegisterFormData)[]> = {
-  0: ["address", "ho", "buildingType", "roomCount", "bathroomCount", "hasElevator", "parking"],
+  0: ["address", "ho", "buildingType", "roomCount", "bathroomCount", "kitchenCount", "hasElevator", "parking"],
   1: ["petAllowed"],
   2: ["shortTitle", "images", "description"],
   3: ["weeklyPrice", "cancellationPolicy", "cancellationAgreed"],
@@ -192,9 +191,8 @@ export const DEFAULT_VALUES: Partial<RegisterFormData> = {
   totalFloors: 1,
   buildingType: "",
   roomCount: 1,
-  bathroomCount: 0,
-  kitchenCount: 0,
-  livingRoomCount: 0,
+  bathroomCount: 1,
+  kitchenCount: 1,
   areaUnit: "㎡",
   parking: "불가능",
   parkingCount: 0,

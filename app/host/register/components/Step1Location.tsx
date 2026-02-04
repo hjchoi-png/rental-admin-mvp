@@ -86,7 +86,7 @@ export default function Step1Location() {
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
       {/* 주소 */}
-      <Card>
+      <Card data-field="address">
         <CardHeader>
           <CardTitle>주소 <span className="text-destructive">*</span></CardTitle>
         </CardHeader>
@@ -117,7 +117,7 @@ export default function Step1Location() {
                 <p className="text-sm text-destructive">{errors.dong.message}</p>
               )}
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2" data-field="ho">
               <Label>호 <span className="text-destructive">*</span></Label>
               <Input
                 {...register("ho")}
@@ -170,7 +170,7 @@ export default function Step1Location() {
           </div>
 
           {/* 건물 유형 */}
-          <div className="space-y-2">
+          <div className="space-y-2" data-field="buildingType">
             <Label>건물 유형 <span className="text-destructive">*</span></Label>
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
               {BUILDING_TYPES.map((type) => (
@@ -199,16 +199,21 @@ export default function Step1Location() {
       </Card>
 
       {/* 공간 구조 */}
-      <Card>
+      <Card data-field="roomCount">
         <CardHeader>
           <CardTitle>공간 구조</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
-            <CounterField label="방" name="roomCount" min={1} required />
-            <CounterField label="화장실" name="bathroomCount" />
-            <CounterField label="주방" name="kitchenCount" />
-            <CounterField label="거실" name="livingRoomCount" />
+          <div className="grid grid-cols-3 gap-6">
+            <div data-field="roomCount">
+              <CounterField label="방" name="roomCount" min={1} required />
+            </div>
+            <div data-field="bathroomCount">
+              <CounterField label="화장실" name="bathroomCount" min={1} required />
+            </div>
+            <div data-field="kitchenCount">
+              <CounterField label="주방" name="kitchenCount" min={1} required />
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -254,7 +259,7 @@ export default function Step1Location() {
         </CardHeader>
         <CardContent className="space-y-6">
           {/* 엘리베이터 */}
-          <div className="space-y-2">
+          <div className="space-y-2" data-field="hasElevator">
             <Label>엘리베이터 <span className="text-destructive">*</span></Label>
             <RadioGroup
               value={watch("hasElevator") === undefined ? undefined : watch("hasElevator") ? "true" : "false"}
@@ -276,7 +281,7 @@ export default function Step1Location() {
           </div>
 
           {/* 주차 */}
-          <div className="space-y-2">
+          <div className="space-y-2" data-field="parking">
             <Label>주차 가능 여부 <span className="text-destructive">*</span></Label>
             <RadioGroup
               value={parking}

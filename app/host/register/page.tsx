@@ -34,7 +34,24 @@ export default function PropertyRegisterPage() {
     const fields = STEP_FIELDS[currentStep]
     if (fields && fields.length > 0) {
       const valid = await methods.trigger(fields)
-      if (!valid) return
+      if (!valid) {
+        // 첫 번째 에러 필드로 스크롤
+        const errors = methods.formState.errors
+        const firstErrorField = fields.find(field => errors[field])
+        if (firstErrorField) {
+          // data-field 속성으로 요소 찾기, 없으면 name으로 찾기
+          const element = document.querySelector(`[data-field="${firstErrorField}"]`) ||
+                         document.querySelector(`[name="${firstErrorField}"]`)
+          if (element) {
+            element.scrollIntoView({ behavior: "smooth", block: "center" })
+            // 포커스 가능한 요소면 포커스
+            if (element instanceof HTMLElement && typeof element.focus === 'function') {
+              setTimeout(() => element.focus(), 500)
+            }
+          }
+        }
+        return
+      }
     }
     setCurrentStep((s) => Math.min(s + 1, STEPS.length - 1))
     window.scrollTo({ top: 0, behavior: "smooth" })
