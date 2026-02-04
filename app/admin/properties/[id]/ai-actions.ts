@@ -4,9 +4,13 @@ import { createClient } from "@/utils/supabase/server"
 import { revalidatePath } from "next/cache"
 import OpenAI from "openai"
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
+const getOpenAIClient = () => {
+  const apiKey = process.env.OPENAI_API_KEY
+  if (!apiKey) {
+    return null
+  }
+  return new OpenAI({ apiKey })
+}
 
 interface AiReviewResult {
   totalScore: number
@@ -25,6 +29,12 @@ interface AiReviewResult {
  */
 export async function runAiInspection(propertyId: string) {
   try {
+    const openai = getOpenAIClient()
+    if (!openai) {
+      console.log("OPENAI_API_KEY가 설정되지 않아 AI 검수를 건너뜁니다.")
+      return { success: false, error: "AI 검수 기능이 비활성화되어 있습니다." }
+    }
+
     const supabase = await createClient()
 
     // 1. 매물 데이터 조회

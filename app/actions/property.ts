@@ -173,6 +173,7 @@ export async function createProperty(formData: CreatePropertyInput) {
 
   if (error) {
     console.error('Error creating property:', error)
+    console.error('Property data that failed:', JSON.stringify(propertyData, null, 2))
     return { error: '매물 등록 실패: ' + error.message }
   }
 

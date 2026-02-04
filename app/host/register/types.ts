@@ -112,9 +112,9 @@ export const registerSchema = z.object({
   floorNumber: z.number().optional(),
   floorType: z.string().optional(), // '반지하' | '옥탑방' | null
   buildingType: z.string().min(1, "건물 유형을 선택해주세요"),
-  roomCount: z.number({ required_error: "방 개수를 입력해주세요" }).min(1, "방은 최소 1개 이상 필요합니다").max(10),
-  bathroomCount: z.number({ required_error: "화장실 개수를 입력해주세요" }).min(1, "화장실은 최소 1개 이상 필요합니다").max(10),
-  kitchenCount: z.number({ required_error: "주방 개수를 입력해주세요" }).min(1, "주방은 최소 1개 이상 필요합니다").max(10),
+  roomCount: z.number({ message: "방 개수를 입력해주세요" }).min(1, "방은 최소 1개 이상 필요합니다").max(10),
+  bathroomCount: z.number({ message: "화장실 개수를 입력해주세요" }).min(1, "화장실은 최소 1개 이상 필요합니다").max(10),
+  kitchenCount: z.number({ message: "주방 개수를 입력해주세요" }).min(1, "주방은 최소 1개 이상 필요합니다").max(10),
   areaSqm: z.number().min(1, "면적을 입력해주세요").max(3305.785).optional(),
   areaPyeong: z.number().optional(),
   areaUnit: z.enum(["평", "㎡"]).default("㎡"),
