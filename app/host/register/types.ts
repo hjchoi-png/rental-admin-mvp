@@ -108,7 +108,7 @@ export const registerSchema = z.object({
   dong: z.string().optional(),
   ho: z.string().min(1, "호 정보를 입력해주세요"),
   dongNone: z.boolean().default(false),
-  totalFloors: z.number().min(1, "전체 층수를 선택해주세요").max(80),
+  totalFloors: z.number().min(1).max(80).default(1),
   floorNumber: z.number().optional(),
   floorType: z.string().optional(), // '반지하' | '옥탑방' | null
   buildingType: z.string().min(1, "건물 유형을 선택해주세요"),
@@ -175,7 +175,7 @@ export type RegisterFormData = z.infer<typeof registerSchema>
 
 // 스텝별 필드 매핑 (trigger 검증용)
 export const STEP_FIELDS: Record<number, (keyof RegisterFormData)[]> = {
-  0: ["address", "ho", "totalFloors", "buildingType", "roomCount", "bathroomCount", "hasElevator", "parking"],
+  0: ["address", "ho", "buildingType", "roomCount", "bathroomCount", "hasElevator", "parking"],
   1: ["petAllowed"],
   2: ["shortTitle", "images", "description"],
   3: ["weeklyPrice", "cancellationPolicy", "cancellationAgreed"],

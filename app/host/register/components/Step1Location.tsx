@@ -62,7 +62,6 @@ function CounterField({
 export default function Step1Location() {
   const { setValue, watch, register, formState: { errors } } = useFormContext<RegisterFormData>()
   const dongNone = watch("dongNone")
-  const totalFloors = watch("totalFloors")
   const parking = watch("parking")
   const areaUnit = watch("areaUnit") || "㎡"
   const buildingType = watch("buildingType")
@@ -82,19 +81,6 @@ export default function Step1Location() {
   const toggleAreaUnit = () => {
     const newUnit = areaUnit === "㎡" ? "평" : "㎡"
     setValue("areaUnit", newUnit)
-  }
-
-  // 해당 층 옵션 생성
-  const floorOptions = () => {
-    if (!totalFloors) return []
-    const options: { value: string; label: string }[] = [
-      { value: "반지하", label: "반지하" },
-    ]
-    for (let i = 1; i <= totalFloors; i++) {
-      options.push({ value: String(i), label: `${i}층` })
-    }
-    options.push({ value: "옥탑방", label: "옥탑방" })
-    return options
   }
 
   return (
@@ -151,51 +137,36 @@ export default function Step1Location() {
           <CardTitle>건물 정보</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>전체 층 <span className="text-destructive">*</span></Label>
-              <Select
-                value={totalFloors ? String(totalFloors) : ""}
-                onValueChange={(v) => setValue("totalFloors", Number(v), { shouldValidate: true })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="선택" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Array.from({ length: 80 }, (_, i) => i + 1).map((f) => (
-                    <SelectItem key={f} value={String(f)}>{f}층</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.totalFloors && (
-                <p className="text-sm text-destructive">{errors.totalFloors.message}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label>해당 층</Label>
-              <Select
-                disabled={!totalFloors}
-                value={watch("floorType") || (watch("floorNumber") ? String(watch("floorNumber")) : "")}
-                onValueChange={(v) => {
-                  if (v === "반지하" || v === "옥탑방") {
-                    setValue("floorType", v)
-                    setValue("floorNumber", undefined)
-                  } else {
-                    setValue("floorType", undefined)
-                    setValue("floorNumber", Number(v))
-                  }
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={totalFloors ? "선택" : "전체 층 먼저 선택"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {floorOptions().map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="space-y-2">
+            <Label>해당 층 <span className="text-destructive">*</span></Label>
+            <Select
+              value={watch("floorType") || (watch("floorNumber") ? String(watch("floorNumber")) : "")}
+              onValueChange={(v) => {
+                if (v === "반지하" || v === "옥탑방") {
+                  setValue("floorType", v, { shouldValidate: true })
+                  setValue("floorNumber", undefined)
+                  setValue("totalFloors", 1) // 기본값 설정
+                } else {
+                  setValue("floorType", undefined)
+                  setValue("floorNumber", Number(v), { shouldValidate: true })
+                  setValue("totalFloors", Math.max(Number(v), watch("totalFloors") || 1))
+                }
+              }}
+            >
+              <SelectTrigger className="w-full max-w-xs">
+                <SelectValue placeholder="선택" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="반지하">반지하</SelectItem>
+                {Array.from({ length: 50 }, (_, i) => i + 1).map((f) => (
+                  <SelectItem key={f} value={String(f)}>{f}층</SelectItem>
+                ))}
+                <SelectItem value="옥탑방">옥탑방</SelectItem>
+              </SelectContent>
+            </Select>
+            {errors.floorNumber && (
+              <p className="text-sm text-destructive">{errors.floorNumber.message}</p>
+            )}
           </div>
 
           {/* 건물 유형 */}
