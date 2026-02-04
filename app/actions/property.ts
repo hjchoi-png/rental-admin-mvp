@@ -64,7 +64,6 @@ const propertySchema = z.object({
   // Step 5: 예약 설정
   minStayWeeks: z.number().optional(),
   maxStayWeeks: z.number().optional(),
-  dayExtension: z.number().optional(),
   blockedDates: z.array(z.string()).optional(),
 
   // Step 6: 입실/퇴실
@@ -151,7 +150,6 @@ export async function createProperty(formData: CreatePropertyInput) {
 
     min_stay_weeks: d.minStayWeeks || 1,
     max_stay_weeks: d.maxStayWeeks || 12,
-    day_extension: d.dayExtension || 0,
     blocked_dates: d.blockedDates || [],
 
     checkin_time: d.checkinTime || "15:00",

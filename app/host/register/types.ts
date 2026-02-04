@@ -155,7 +155,6 @@ export const registerSchema = z.object({
   // Step 5: 예약 설정
   minStayWeeks: z.number().min(1).max(12).default(1),
   maxStayWeeks: z.number().default(12),
-  dayExtension: z.number().min(0).max(6).default(0),
   blockedDates: z.array(z.string()).default([]),
 
   // Step 6: 입실/퇴실
@@ -218,7 +217,6 @@ export const DEFAULT_VALUES: Partial<RegisterFormData> = {
   cancellationAgreed: false,
   minStayWeeks: 1,
   maxStayWeeks: 12,
-  dayExtension: 0,
   blockedDates: [],
   checkinTime: "15:00",
   checkinMethod: "비대면",

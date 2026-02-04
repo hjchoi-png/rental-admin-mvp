@@ -54,27 +54,6 @@ export default function Step5Reservation() {
             </div>
           </div>
 
-          {/* 일 단위 연장 */}
-          <div className="space-y-2">
-            <Label>일 단위 연장</Label>
-            <Select
-              value={String(watch("dayExtension") || 0)}
-              onValueChange={(v) => setValue("dayExtension", Number(v))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="선택해주세요" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="0">연장 없음</SelectItem>
-                {Array.from({ length: 6 }, (_, i) => i + 1).map((d) => (
-                  <SelectItem key={d} value={String(d)}>{d}일</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              최소 1주 이상 체류 시 추가로 연장 가능한 일수입니다. (최대 6일)
-            </p>
-          </div>
         </CardContent>
       </Card>
     </div>
