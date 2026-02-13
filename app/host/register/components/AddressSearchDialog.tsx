@@ -34,9 +34,9 @@ export default function AddressSearchDialog() {
           value={address || ""}
           readOnly
           placeholder="주소를 검색해주세요"
-          className="flex-1"
+          className="host-input flex-1"
         />
-        <Button type="button" onClick={() => setOpen(true)} variant="outline">
+        <Button type="button" onClick={() => setOpen(true)} variant="outline" className="host-btn shrink-0">
           주소 검색
         </Button>
       </div>

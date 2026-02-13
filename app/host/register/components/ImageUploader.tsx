@@ -179,11 +179,11 @@ export default function ImageUploader() {
               onDragEnd={handleDragEnd}
               className={`relative aspect-square rounded-xl overflow-hidden border group cursor-grab ${
                 dragOverIndex === i ? "ring-2 ring-primary" : ""
-              } ${i === 0 ? "ring-2 ring-blue-500" : ""}`}
+              } ${i === 0 ? "ring-2 ring-primary" : ""}`}
             >
               <Image src={p.url || images[i]} alt="" fill className="object-cover" />
               {i === 0 && (
-                <span className="absolute top-1 left-1 bg-blue-500 text-white text-[10px] px-1.5 py-0.5 rounded-md">
+                <span className="absolute top-1 left-1 bg-primary text-white text-[10px] px-1.5 py-0.5 rounded-md">
                   대표
                 </span>
               )}
