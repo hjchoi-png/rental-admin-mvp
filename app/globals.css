@@ -58,3 +58,57 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ==============================
+   호스트 페이지 전용 폼 스타일
+   ============================== */
+@layer components {
+  /* 호스트 폼 Input: 48px, 16px 폰트, 포커스 글로우 */
+  .host-input {
+    @apply h-12 text-base px-4 rounded-xl border-border/60 bg-background
+           transition-shadow duration-200
+           focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary;
+  }
+
+  /* 호스트 폼 Textarea */
+  .host-textarea {
+    @apply text-base px-4 py-3 rounded-xl border-border/60 bg-background
+           transition-shadow duration-200
+           focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary;
+  }
+
+  /* 호스트 폼 Label */
+  .host-label {
+    @apply text-sm font-medium text-foreground;
+  }
+
+  /* 호스트 폼 Card */
+  .host-card {
+    @apply border-0 shadow-sm rounded-2xl bg-card;
+  }
+
+  /* 호스트 CTA 버튼 */
+  .host-btn {
+    @apply h-12 rounded-xl text-base font-semibold px-8;
+  }
+
+  /* 선택 칩 (옵션, 건물유형 등) */
+  .host-chip {
+    @apply px-4 py-2.5 rounded-xl border text-sm font-medium
+           transition-all duration-200 cursor-pointer
+           hover:border-primary/40 hover:bg-primary/5
+           active:scale-[0.97];
+  }
+  .host-chip-active {
+    @apply bg-primary text-primary-foreground border-primary
+           shadow-sm shadow-primary/20;
+  }
+
+  /* 카운터 버튼 */
+  .host-counter-btn {
+    @apply w-10 h-10 rounded-full border flex items-center justify-center
+           text-lg font-medium transition-colors
+           hover:bg-primary/10 hover:border-primary/30
+           active:scale-95;
+  }
+}

@@ -33,21 +33,21 @@ function CounterField({
   const value = (watch(name) as number) || 0
 
   return (
-    <div className="space-y-1">
-      <Label>{label} {required && <span className="text-destructive">*</span>}</Label>
-      <div className="flex items-center gap-2">
+    <div className="space-y-2">
+      <Label className="host-label">{label} {required && <span className="text-destructive">*</span>}</Label>
+      <div className="flex items-center gap-3">
         <button
           type="button"
           onClick={() => setValue(name, Math.max(min, value - 1) as never, { shouldValidate: true })}
-          className="w-8 h-8 rounded-full border flex items-center justify-center hover:bg-muted"
+          className="host-counter-btn"
         >
-          -
+          −
         </button>
-        <span className="w-8 text-center font-medium">{value}</span>
+        <span className="w-8 text-center text-lg font-semibold tabular-nums">{value}</span>
         <button
           type="button"
           onClick={() => setValue(name, Math.min(max, value + 1) as never, { shouldValidate: true })}
-          className="w-8 h-8 rounded-full border flex items-center justify-center hover:bg-muted"
+          className="host-counter-btn"
         >
           +
         </button>
@@ -84,11 +84,11 @@ export default function Step1Location() {
   }
 
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
+    <div className="space-y-6">
       {/* 주소 */}
-      <Card data-field="address">
+      <Card className="host-card" data-field="address">
         <CardHeader>
-          <CardTitle>주소 <span className="text-destructive">*</span></CardTitle>
+          <CardTitle className="text-lg">주소 <span className="text-destructive">*</span></CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <AddressSearchDialog />
@@ -96,7 +96,7 @@ export default function Step1Location() {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label>동</Label>
+                <Label className="host-label">동</Label>
                 <div className="flex items-center gap-2">
                   <Switch
                     checked={dongNone}
@@ -112,16 +112,18 @@ export default function Step1Location() {
                 {...register("dong")}
                 disabled={dongNone}
                 placeholder="동 입력"
+                className="host-input"
               />
               {!dongNone && errors.dong && (
                 <p className="text-sm text-destructive">{errors.dong.message}</p>
               )}
             </div>
             <div className="space-y-2" data-field="ho">
-              <Label>호 <span className="text-destructive">*</span></Label>
+              <Label className="host-label">호 <span className="text-destructive">*</span></Label>
               <Input
                 {...register("ho")}
                 placeholder="호 입력"
+                className="host-input"
               />
               {errors.ho && (
                 <p className="text-sm text-destructive">{errors.ho.message}</p>
@@ -132,20 +134,20 @@ export default function Step1Location() {
       </Card>
 
       {/* 건물 정보 */}
-      <Card>
+      <Card className="host-card">
         <CardHeader>
-          <CardTitle>건물 정보</CardTitle>
+          <CardTitle className="text-lg">건물 정보</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>해당 층 <span className="text-destructive">*</span></Label>
+            <Label className="host-label">해당 층 <span className="text-destructive">*</span></Label>
             <Select
               value={watch("floorType") || (watch("floorNumber") ? String(watch("floorNumber")) : "")}
               onValueChange={(v) => {
                 if (v === "반지하" || v === "옥탑방") {
                   setValue("floorType", v, { shouldValidate: true })
                   setValue("floorNumber", undefined)
-                  setValue("totalFloors", 1) // 기본값 설정
+                  setValue("totalFloors", 1)
                 } else {
                   setValue("floorType", undefined)
                   setValue("floorNumber", Number(v), { shouldValidate: true })
@@ -153,7 +155,7 @@ export default function Step1Location() {
                 }
               }}
             >
-              <SelectTrigger className="w-full max-w-xs">
+              <SelectTrigger className="host-input w-full max-w-xs">
                 <SelectValue placeholder="선택" />
               </SelectTrigger>
               <SelectContent>
@@ -171,17 +173,15 @@ export default function Step1Location() {
 
           {/* 건물 유형 */}
           <div className="space-y-2" data-field="buildingType">
-            <Label>건물 유형 <span className="text-destructive">*</span></Label>
+            <Label className="host-label">건물 유형 <span className="text-destructive">*</span></Label>
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
               {BUILDING_TYPES.map((type) => (
                 <button
                   key={type}
                   type="button"
                   onClick={() => setValue("buildingType", type, { shouldValidate: true })}
-                  className={`px-3 py-2 rounded-lg border text-sm transition-colors ${
-                    buildingType === type
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-background hover:bg-muted border-border"
+                  className={`host-chip ${
+                    buildingType === type ? "host-chip-active" : ""
                   }`}
                 >
                   {type}
@@ -199,9 +199,9 @@ export default function Step1Location() {
       </Card>
 
       {/* 공간 구조 */}
-      <Card data-field="roomCount">
+      <Card className="host-card" data-field="roomCount">
         <CardHeader>
-          <CardTitle>공간 구조</CardTitle>
+          <CardTitle className="text-lg">공간 구조</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-3 gap-6">
@@ -219,9 +219,9 @@ export default function Step1Location() {
       </Card>
 
       {/* 전용 면적 */}
-      <Card>
+      <Card className="host-card">
         <CardHeader>
-          <CardTitle>전용 면적</CardTitle>
+          <CardTitle className="text-lg">전용 면적</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           <div className="flex gap-2">
@@ -231,12 +231,12 @@ export default function Step1Location() {
               value={areaUnit === "㎡" ? watch("areaSqm") || "" : watch("areaPyeong") || ""}
               onChange={(e) => handleAreaChange(e.target.value)}
               placeholder="면적 입력"
-              className="flex-1"
+              className="host-input flex-1"
             />
             <button
               type="button"
               onClick={toggleAreaUnit}
-              className="px-4 py-2 border rounded-lg text-sm hover:bg-muted min-w-[60px]"
+              className="host-chip min-w-[60px] text-center"
             >
               {areaUnit}
             </button>
@@ -253,14 +253,14 @@ export default function Step1Location() {
       </Card>
 
       {/* 추가 정보 */}
-      <Card>
+      <Card className="host-card">
         <CardHeader>
-          <CardTitle>추가 정보</CardTitle>
+          <CardTitle className="text-lg">추가 정보</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* 엘리베이터 */}
           <div className="space-y-2" data-field="hasElevator">
-            <Label>엘리베이터 <span className="text-destructive">*</span></Label>
+            <Label className="host-label">엘리베이터 <span className="text-destructive">*</span></Label>
             <RadioGroup
               value={watch("hasElevator") === undefined ? undefined : watch("hasElevator") ? "true" : "false"}
               onValueChange={(v) => setValue("hasElevator", v === "true", { shouldValidate: true })}
@@ -282,7 +282,7 @@ export default function Step1Location() {
 
           {/* 주차 */}
           <div className="space-y-2" data-field="parking">
-            <Label>주차 가능 여부 <span className="text-destructive">*</span></Label>
+            <Label className="host-label">주차 가능 여부 <span className="text-destructive">*</span></Label>
             <RadioGroup
               value={parking}
               onValueChange={(v) => setValue("parking", v as typeof PARKING_OPTIONS[number], { shouldValidate: true })}
@@ -298,9 +298,9 @@ export default function Step1Location() {
           </div>
 
           {parking === "가능" && (
-            <div className="space-y-4 pl-4 border-l-2">
+            <div className="space-y-4 pl-4 border-l-2 border-primary/20">
               <div className="space-y-2">
-                <Label>주차 방식</Label>
+                <Label className="host-label">주차 방식</Label>
                 <RadioGroup
                   value={watch("parkingType") || ""}
                   onValueChange={(v) => setValue("parkingType", v)}
@@ -317,12 +317,12 @@ export default function Step1Location() {
                 </RadioGroup>
               </div>
               <div className="space-y-2">
-                <Label>주차 가능 대수</Label>
+                <Label className="host-label">주차 가능 대수</Label>
                 <Select
                   value={String(watch("parkingCount") || 0)}
                   onValueChange={(v) => setValue("parkingCount", Number(v))}
                 >
-                  <SelectTrigger className="w-32">
+                  <SelectTrigger className="host-input w-32">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -334,11 +334,12 @@ export default function Step1Location() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>주차 조건</Label>
+                <Label className="host-label">주차 조건</Label>
                 <Input
                   {...register("parkingCondition")}
                   placeholder="예: 선착순 1대, 월 10만원 별도"
                   maxLength={100}
+                  className="host-input"
                 />
                 {errors.parkingCondition && (
                   <p className="text-sm text-destructive">{errors.parkingCondition.message}</p>

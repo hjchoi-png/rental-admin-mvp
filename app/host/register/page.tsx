@@ -6,7 +6,7 @@ import { FormProvider, useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
-import { Loader2, ChevronLeft, ChevronRight } from "lucide-react"
+import { SpinnerGap, CaretLeft, CaretRight, PaperPlaneTilt } from "@phosphor-icons/react"
 import { createProperty } from "@/app/actions/property"
 
 import { registerSchema, type RegisterFormData, DEFAULT_VALUES, STEPS, STEP_FIELDS } from "./types"
@@ -35,16 +35,13 @@ export default function PropertyRegisterPage() {
     if (fields && fields.length > 0) {
       const valid = await methods.trigger(fields)
       if (!valid) {
-        // 첫 번째 에러 필드로 스크롤
         const errors = methods.formState.errors
         const firstErrorField = fields.find(field => errors[field])
         if (firstErrorField) {
-          // data-field 속성으로 요소 찾기, 없으면 name으로 찾기
           const element = document.querySelector(`[data-field="${firstErrorField}"]`) ||
                          document.querySelector(`[name="${firstErrorField}"]`)
           if (element) {
             element.scrollIntoView({ behavior: "smooth", block: "center" })
-            // 포커스 가능한 요소면 포커스
             if (element instanceof HTMLElement && typeof element.focus === 'function') {
               setTimeout(() => element.focus(), 500)
             }
@@ -96,15 +93,15 @@ export default function PropertyRegisterPage() {
   const isLastStep = currentStep === STEPS.length - 1
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background">
-      {/* 상단 컬러 바 */}
-      <div className="h-2 bg-gradient-to-r from-primary to-orange-500" />
+    <div className="min-h-screen bg-gradient-to-b from-primary/5 via-background to-background">
+      {/* 상단 그라데이션 바 */}
+      <div className="h-1.5 bg-gradient-to-r from-primary via-orange-400 to-primary" />
 
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
+      <div className="container mx-auto px-5 py-8 max-w-2xl">
         {/* 헤더 */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-primary">매물 등록</h1>
-          <p className="text-muted-foreground mt-2">
+        <div className="text-center mb-10">
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground">매물 등록</h1>
+          <p className="text-muted-foreground mt-2 text-sm">
             얼리버드 사전등록으로 매물을 등록해주세요
           </p>
         </div>
@@ -113,8 +110,8 @@ export default function PropertyRegisterPage() {
         <StepIndicator currentStep={currentStep} />
 
         {/* 스텝 제목 */}
-        <div className="text-center mb-6">
-          <h2 className="text-xl font-semibold">{STEPS[currentStep].label}</h2>
+        <div className="text-center mb-8">
+          <h2 className="text-lg font-semibold text-foreground">{STEPS[currentStep].label}</h2>
         </div>
 
         {/* 폼 */}
@@ -123,15 +120,15 @@ export default function PropertyRegisterPage() {
             {stepComponents[currentStep]}
 
             {/* 네비게이션 */}
-            <div className="flex justify-between mt-8 max-w-2xl mx-auto">
+            <div className="flex justify-between mt-10 gap-4">
               <Button
                 type="button"
                 variant="outline"
                 onClick={handlePrev}
                 disabled={currentStep === 0}
-                size="lg"
+                className="host-btn flex-1 max-w-[160px]"
               >
-                <ChevronLeft className="h-4 w-4 mr-1" />
+                <CaretLeft size={18} weight="bold" className="mr-1" />
                 이전
               </Button>
 
@@ -139,22 +136,28 @@ export default function PropertyRegisterPage() {
                 <Button
                   type="submit"
                   disabled={isSubmitting}
-                  size="lg"
-                  className="min-w-[120px]"
+                  className="host-btn flex-1 max-w-[200px]"
                 >
                   {isSubmitting ? (
                     <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      <SpinnerGap size={18} className="mr-2 animate-spin" />
                       등록 중...
                     </>
                   ) : (
-                    "매물 등록"
+                    <>
+                      <PaperPlaneTilt size={18} weight="fill" className="mr-1" />
+                      매물 등록
+                    </>
                   )}
                 </Button>
               ) : (
-                <Button type="button" onClick={handleNext} size="lg">
+                <Button
+                  type="button"
+                  onClick={handleNext}
+                  className="host-btn flex-1 max-w-[200px]"
+                >
                   다음
-                  <ChevronRight className="h-4 w-4 ml-1" />
+                  <CaretRight size={18} weight="bold" className="ml-1" />
                 </Button>
               )}
             </div>

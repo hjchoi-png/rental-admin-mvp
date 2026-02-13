@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, useRef, useCallback } from "react"
+import { useState, useRef, useCallback, useMemo } from "react"
 import { useFormContext } from "react-hook-form"
 import Image from "next/image"
-import { Upload, X, GripVertical } from "lucide-react"
+import { UploadSimple, X, DotsSixVertical } from "@phosphor-icons/react"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
 import { supabase } from "@/utils/supabase/client"
@@ -16,7 +16,8 @@ const ACCEPTED_TYPES = ["image/jpeg", "image/jpg", "image/png"]
 
 export default function ImageUploader() {
   const { setValue, watch, formState: { errors } } = useFormContext<RegisterFormData>()
-  const images = watch("images") || []
+  const watchedImages = watch("images")
+  const images = useMemo(() => watchedImages || [], [watchedImages])
   const [previews, setPreviews] = useState<{ url: string; file?: File }[]>([])
   const [uploading, setUploading] = useState(false)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
@@ -24,7 +25,7 @@ export default function ImageUploader() {
   const fileRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
-  const processFile = async (file: File): Promise<File> => {
+  const processFile = useCallback(async (file: File): Promise<File> => {
     // HEIF 변환
     if (file.name.toLowerCase().match(/\.(heic|heif)$/)) {
       try {
@@ -37,7 +38,7 @@ export default function ImageUploader() {
       }
     }
     return file
-  }
+  }, [toast])
 
   const validateFile = (file: File): string | null => {
     if (!ACCEPTED_TYPES.includes(file.type) && !file.name.toLowerCase().match(/\.(heic|heif)$/)) {
@@ -95,7 +96,7 @@ export default function ImageUploader() {
     setPreviews(updatedPreviews)
     setValue("images", updatedUrls, { shouldValidate: true })
     setUploading(false)
-  }, [previews, images, setValue, toast])
+  }, [previews, images, setValue, toast, processFile])
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -138,14 +139,14 @@ export default function ImageUploader() {
       <div
         onDrop={handleDrop}
         onDragOver={(e) => e.preventDefault()}
-        className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-primary transition-colors"
+        className="border-2 border-dashed border-border/60 rounded-2xl p-8 text-center cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-all duration-200"
         onClick={() => fileRef.current?.click()}
       >
-        <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+        <UploadSimple className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
         <p className="text-sm text-muted-foreground">
           파일을 여기로 끌어 놓으세요
         </p>
-        <Button type="button" variant="outline" size="sm" className="mt-2">
+        <Button type="button" variant="outline" size="sm" className="mt-2 rounded-xl">
           파일 선택
         </Button>
         <input
@@ -176,25 +177,25 @@ export default function ImageUploader() {
               onDragStart={() => handleDragStart(i)}
               onDragOver={(e) => handleDragOver(e, i)}
               onDragEnd={handleDragEnd}
-              className={`relative aspect-square rounded-lg overflow-hidden border group cursor-grab ${
+              className={`relative aspect-square rounded-xl overflow-hidden border group cursor-grab ${
                 dragOverIndex === i ? "ring-2 ring-primary" : ""
               } ${i === 0 ? "ring-2 ring-blue-500" : ""}`}
             >
               <Image src={p.url || images[i]} alt="" fill className="object-cover" />
               {i === 0 && (
-                <span className="absolute top-1 left-1 bg-blue-500 text-white text-[10px] px-1.5 py-0.5 rounded">
+                <span className="absolute top-1 left-1 bg-blue-500 text-white text-[10px] px-1.5 py-0.5 rounded-md">
                   대표
                 </span>
               )}
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
-                <GripVertical className="h-4 w-4 text-white" />
+                <DotsSixVertical className="h-5 w-5 text-white" weight="bold" />
               </div>
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); removeImage(i) }}
                 className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
               >
-                <X className="h-3 w-3" />
+                <X className="h-3.5 w-3.5" />
               </button>
             </div>
           ))}

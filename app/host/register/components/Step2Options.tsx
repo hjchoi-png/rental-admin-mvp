@@ -19,10 +19,10 @@ export default function Step2Options() {
   }
 
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
-      <Card>
+    <div className="space-y-6">
+      <Card className="host-card">
         <CardHeader>
-          <CardTitle>옵션 선택</CardTitle>
+          <CardTitle className="text-lg">옵션 선택</CardTitle>
           <CardDescription>매물에서 제공하는 옵션을 선택해주세요</CardDescription>
         </CardHeader>
         <CardContent>
@@ -32,25 +32,23 @@ export default function Step2Options() {
                 key={item}
                 type="button"
                 onClick={() => toggleAmenity(item)}
-                className={`px-3 py-2 rounded-lg border text-sm transition-colors ${
-                  amenities.includes(item)
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-background hover:bg-muted border-border"
+                className={`host-chip ${
+                  amenities.includes(item) ? "host-chip-active" : ""
                 }`}
               >
                 {item}
               </button>
             ))}
           </div>
-          <p className="text-xs text-muted-foreground mt-2">
+          <p className="text-xs text-muted-foreground mt-3">
             {amenities.length}개 선택됨
           </p>
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="host-card">
         <CardHeader>
-          <CardTitle>반려동물 동반 <span className="text-destructive">*</span></CardTitle>
+          <CardTitle className="text-lg">반려동물 동반 <span className="text-destructive">*</span></CardTitle>
           <CardDescription>반려동물 동반 가능 여부를 선택해주세요</CardDescription>
         </CardHeader>
         <CardContent>

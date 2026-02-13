@@ -17,21 +17,21 @@ export default function Step6CheckInOut() {
   const { setValue, watch, formState: { errors } } = useFormContext<RegisterFormData>()
 
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
-      <Card>
+    <div className="space-y-6">
+      <Card className="host-card">
         <CardHeader>
-          <CardTitle>입실 규칙</CardTitle>
+          <CardTitle className="text-lg">입실 규칙</CardTitle>
           <CardDescription>게스트의 입실 시간과 방식을 설정해주세요</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* 입실 시간 */}
           <div className="space-y-2">
-            <Label>입실 시간 <span className="text-destructive">*</span></Label>
+            <Label className="host-label">입실 시간 <span className="text-destructive">*</span></Label>
             <Select
               value={watch("checkinTime")}
               onValueChange={(v) => setValue("checkinTime", v, { shouldValidate: true })}
             >
-              <SelectTrigger>
+              <SelectTrigger className="host-input">
                 <SelectValue placeholder="시간 선택" />
               </SelectTrigger>
               <SelectContent>
@@ -44,7 +44,7 @@ export default function Step6CheckInOut() {
 
           {/* 입실 방식 */}
           <div className="space-y-2">
-            <Label>입실 방식 <span className="text-destructive">*</span></Label>
+            <Label className="host-label">입실 방식 <span className="text-destructive">*</span></Label>
             <RadioGroup
               value={watch("checkinMethod")}
               onValueChange={(v) => setValue("checkinMethod", v as "비대면" | "대면", { shouldValidate: true })}
@@ -63,20 +63,20 @@ export default function Step6CheckInOut() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="host-card">
         <CardHeader>
-          <CardTitle>퇴실 규칙</CardTitle>
+          <CardTitle className="text-lg">퇴실 규칙</CardTitle>
           <CardDescription>게스트의 퇴실 시간과 방식을 설정해주세요</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* 퇴실 시간 */}
           <div className="space-y-2">
-            <Label>퇴실 시간 <span className="text-destructive">*</span></Label>
+            <Label className="host-label">퇴실 시간 <span className="text-destructive">*</span></Label>
             <Select
               value={watch("checkoutTime")}
               onValueChange={(v) => setValue("checkoutTime", v, { shouldValidate: true })}
             >
-              <SelectTrigger>
+              <SelectTrigger className="host-input">
                 <SelectValue placeholder="시간 선택" />
               </SelectTrigger>
               <SelectContent>
@@ -89,7 +89,7 @@ export default function Step6CheckInOut() {
 
           {/* 퇴실 방식 */}
           <div className="space-y-2">
-            <Label>퇴실 방식 <span className="text-destructive">*</span></Label>
+            <Label className="host-label">퇴실 방식 <span className="text-destructive">*</span></Label>
             <RadioGroup
               value={watch("checkoutMethod")}
               onValueChange={(v) => setValue("checkoutMethod", v as "비대면" | "대면", { shouldValidate: true })}

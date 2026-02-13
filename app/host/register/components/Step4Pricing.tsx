@@ -22,7 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Plus, Trash2 } from "lucide-react"
+import { Plus, Trash } from "@phosphor-icons/react"
 import {
   CANCELLATION_POLICIES,
   CANCELLATION_TABLE,
@@ -63,9 +63,10 @@ function NumberInput({
           onChange(num)
         }}
         placeholder={placeholder}
+        className="host-input pr-10"
       />
       {suffix && (
-        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
           {suffix}
         </span>
       )}
@@ -84,15 +85,15 @@ export default function Step4Pricing() {
   const [templateOpen, setTemplateOpen] = useState(false)
 
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
+    <div className="space-y-6">
       {/* 기본 요금 */}
-      <Card>
+      <Card className="host-card">
         <CardHeader>
-          <CardTitle>기본 요금</CardTitle>
+          <CardTitle className="text-lg">기본 요금</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>주당 요금 <span className="text-destructive">*</span></Label>
+            <Label className="host-label">주당 요금 <span className="text-destructive">*</span></Label>
             <NumberInput
               value={watch("weeklyPrice") || 0}
               onChange={(n) => setValue("weeklyPrice", n, { shouldValidate: true })}
@@ -105,8 +106,8 @@ export default function Step4Pricing() {
             )}
           </div>
           <div className="space-y-2">
-            <Label>보증금</Label>
-            <div className="p-3 bg-muted rounded-md text-sm">
+            <Label className="host-label">보증금</Label>
+            <div className="p-3 bg-muted/50 rounded-xl text-sm">
               300,000원 <span className="text-muted-foreground">(시스템 고정값)</span>
             </div>
             <p className="text-xs text-muted-foreground">
@@ -117,9 +118,9 @@ export default function Step4Pricing() {
       </Card>
 
       {/* 장기 계약 할인 */}
-      <Card>
+      <Card className="host-card">
         <CardHeader>
-          <CardTitle>장기 계약 할인</CardTitle>
+          <CardTitle className="text-lg">장기 계약 할인</CardTitle>
           <CardDescription>기간에 따라 할인율을 설정해주세요 (선택)</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -129,7 +130,7 @@ export default function Step4Pricing() {
                 value={String(watch(`longTermDiscounts.${i}.weeks`) || "")}
                 onValueChange={(v) => setValue(`longTermDiscounts.${i}.weeks`, Number(v))}
               >
-                <SelectTrigger className="w-24">
+                <SelectTrigger className="host-input w-24">
                   <SelectValue placeholder="기간" />
                 </SelectTrigger>
                 <SelectContent>
@@ -144,11 +145,11 @@ export default function Step4Pricing() {
                 max={100}
                 {...register(`longTermDiscounts.${i}.discountPct`, { valueAsNumber: true })}
                 placeholder="할인율"
-                className="w-24"
+                className="host-input w-24"
               />
-              <span className="text-sm">%</span>
-              <Button type="button" variant="ghost" size="icon" onClick={() => ltRemove(i)}>
-                <Trash2 className="h-4 w-4" />
+              <span className="text-sm text-muted-foreground">%</span>
+              <Button type="button" variant="ghost" size="icon" onClick={() => ltRemove(i)} className="rounded-full">
+                <Trash className="h-4 w-4" />
               </Button>
             </div>
           ))}
@@ -158,6 +159,7 @@ export default function Step4Pricing() {
               variant="outline"
               size="sm"
               onClick={() => ltAppend({ weeks: 2, discountPct: 5 })}
+              className="rounded-xl"
             >
               <Plus className="h-4 w-4 mr-1" /> 추가
             </Button>
@@ -166,9 +168,9 @@ export default function Step4Pricing() {
       </Card>
 
       {/* 즉시 입주 할인 */}
-      <Card>
+      <Card className="host-card">
         <CardHeader>
-          <CardTitle>즉시 입주 할인</CardTitle>
+          <CardTitle className="text-lg">즉시 입주 할인</CardTitle>
           <CardDescription>입주일이 가까운 경우 할인 금액을 설정해주세요 (선택)</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -178,7 +180,7 @@ export default function Step4Pricing() {
                 value={String(watch(`instantMoveDiscounts.${i}.days`) ?? "")}
                 onValueChange={(v) => setValue(`instantMoveDiscounts.${i}.days`, Number(v))}
               >
-                <SelectTrigger className="w-24">
+                <SelectTrigger className="host-input w-24">
                   <SelectValue placeholder="기간" />
                 </SelectTrigger>
                 <SelectContent>
@@ -192,7 +194,7 @@ export default function Step4Pricing() {
                 value={String(watch(`instantMoveDiscounts.${i}.amount`) || "")}
                 onValueChange={(v) => setValue(`instantMoveDiscounts.${i}.amount`, Number(v))}
               >
-                <SelectTrigger className="w-28">
+                <SelectTrigger className="host-input w-28">
                   <SelectValue placeholder="할인 금액" />
                 </SelectTrigger>
                 <SelectContent>
@@ -201,8 +203,8 @@ export default function Step4Pricing() {
                   ))}
                 </SelectContent>
               </Select>
-              <Button type="button" variant="ghost" size="icon" onClick={() => imRemove(i)}>
-                <Trash2 className="h-4 w-4" />
+              <Button type="button" variant="ghost" size="icon" onClick={() => imRemove(i)} className="rounded-full">
+                <Trash className="h-4 w-4" />
               </Button>
             </div>
           ))}
@@ -212,6 +214,7 @@ export default function Step4Pricing() {
               variant="outline"
               size="sm"
               onClick={() => imAppend({ days: 0, amount: 10000 })}
+              className="rounded-xl"
             >
               <Plus className="h-4 w-4 mr-1" /> 추가
             </Button>
@@ -220,13 +223,13 @@ export default function Step4Pricing() {
       </Card>
 
       {/* 관리비 */}
-      <Card>
+      <Card className="host-card">
         <CardHeader>
-          <CardTitle>관리비</CardTitle>
+          <CardTitle className="text-lg">관리비</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>1주 관리비</Label>
+            <Label className="host-label">1주 관리비</Label>
             <NumberInput
               value={watch("maintenanceFee") || 0}
               onChange={(n) => setValue("maintenanceFee", n)}
@@ -236,7 +239,7 @@ export default function Step4Pricing() {
             />
           </div>
           <div className="space-y-3">
-            <Label>포함 항목</Label>
+            <Label className="host-label">포함 항목</Label>
             <div className="flex gap-6">
               {(["전기", "수도", "가스"] as const).map((item) => {
                 const key = `maintenance${item === "전기" ? "Electric" : item === "수도" ? "Water" : "Gas"}` as keyof RegisterFormData
@@ -254,7 +257,7 @@ export default function Step4Pricing() {
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label>관리비 상세 설명</Label>
+              <Label className="host-label">관리비 상세 설명</Label>
               <Button type="button" variant="link" size="sm" onClick={() => setTemplateOpen(true)}>
                 추천 문구 보기
               </Button>
@@ -264,6 +267,7 @@ export default function Step4Pricing() {
               rows={3}
               placeholder="관리비에 대해 상세히 안내해주세요"
               maxLength={1000}
+              className="host-textarea"
             />
           </div>
 
@@ -281,7 +285,7 @@ export default function Step4Pricing() {
                       setValue("maintenanceDetail", t.text)
                       setTemplateOpen(false)
                     }}
-                    className="w-full text-left p-3 border rounded-lg hover:bg-muted transition-colors"
+                    className="w-full text-left p-3 border rounded-xl hover:bg-muted/50 transition-colors"
                   >
                     <p className="font-medium text-sm">{t.label}</p>
                     <p className="text-xs text-muted-foreground mt-1">{t.text}</p>
@@ -294,9 +298,9 @@ export default function Step4Pricing() {
       </Card>
 
       {/* 청소비 */}
-      <Card>
+      <Card className="host-card">
         <CardHeader>
-          <CardTitle>청소비</CardTitle>
+          <CardTitle className="text-lg">청소비</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-2">
@@ -315,7 +319,7 @@ export default function Step4Pricing() {
           {!cleaningFree && (
             <>
               <div className="space-y-2">
-                <Label>퇴실 청소비</Label>
+                <Label className="host-label">퇴실 청소비</Label>
                 <NumberInput
                   value={watch("checkoutCleaningFee") || 0}
                   onChange={(n) => setValue("checkoutCleaningFee", n)}
@@ -326,7 +330,7 @@ export default function Step4Pricing() {
               </div>
               {petAllowed && (
                 <div className="space-y-2">
-                  <Label>반려동물 청소비</Label>
+                  <Label className="host-label">반려동물 청소비</Label>
                   <NumberInput
                     value={watch("petCleaningFee") || 0}
                     onChange={(n) => setValue("petCleaningFee", n)}
@@ -345,9 +349,9 @@ export default function Step4Pricing() {
       </Card>
 
       {/* 위약금 규정 */}
-      <Card>
+      <Card className="host-card">
         <CardHeader>
-          <CardTitle>위약금 규정 <span className="text-destructive">*</span></CardTitle>
+          <CardTitle className="text-lg">위약금 규정 <span className="text-destructive">*</span></CardTitle>
           <CardDescription>위약금 규정을 선택해주세요</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -371,23 +375,23 @@ export default function Step4Pricing() {
           )}
 
           {/* 위약금 상세 표 */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm border">
+          <div className="overflow-x-auto rounded-xl border">
+            <table className="w-full text-sm">
               <thead>
-                <tr className="bg-muted">
-                  <th className="p-2 border text-left">구분</th>
-                  <th className={`p-2 border ${cancellationPolicy === "유연" ? "bg-primary/10 font-bold" : ""}`}>유연</th>
-                  <th className={`p-2 border ${cancellationPolicy === "표준" ? "bg-primary/10 font-bold" : ""}`}>표준</th>
-                  <th className={`p-2 border ${cancellationPolicy === "엄격" ? "bg-primary/10 font-bold" : ""}`}>엄격</th>
+                <tr className="bg-muted/50">
+                  <th className="p-2.5 border-b text-left font-medium">구분</th>
+                  <th className={`p-2.5 border-b ${cancellationPolicy === "유연" ? "bg-primary/10 font-bold" : "font-medium"}`}>유연</th>
+                  <th className={`p-2.5 border-b ${cancellationPolicy === "표준" ? "bg-primary/10 font-bold" : "font-medium"}`}>표준</th>
+                  <th className={`p-2.5 border-b ${cancellationPolicy === "엄격" ? "bg-primary/10 font-bold" : "font-medium"}`}>엄격</th>
                 </tr>
               </thead>
               <tbody>
                 {CANCELLATION_TABLE.map((row) => (
-                  <tr key={row.label}>
-                    <td className="p-2 border font-medium">{row.label}</td>
-                    <td className={`p-2 border text-center ${cancellationPolicy === "유연" ? "bg-primary/5" : ""}`}>{row.flexible}</td>
-                    <td className={`p-2 border text-center ${cancellationPolicy === "표준" ? "bg-primary/5" : ""}`}>{row.standard}</td>
-                    <td className={`p-2 border text-center ${cancellationPolicy === "엄격" ? "bg-primary/5" : ""}`}>{row.strict}</td>
+                  <tr key={row.label} className="border-b last:border-b-0">
+                    <td className="p-2.5 font-medium">{row.label}</td>
+                    <td className={`p-2.5 text-center ${cancellationPolicy === "유연" ? "bg-primary/5" : ""}`}>{row.flexible}</td>
+                    <td className={`p-2.5 text-center ${cancellationPolicy === "표준" ? "bg-primary/5" : ""}`}>{row.standard}</td>
+                    <td className={`p-2.5 text-center ${cancellationPolicy === "엄격" ? "bg-primary/5" : ""}`}>{row.strict}</td>
                   </tr>
                 ))}
               </tbody>
@@ -409,7 +413,7 @@ export default function Step4Pricing() {
               id="cancellation-agree"
               checked={watch("cancellationAgreed") || false}
               onChange={(e) => setValue("cancellationAgreed", e.target.checked, { shouldValidate: true })}
-              className="h-4 w-4"
+              className="h-4 w-4 rounded"
             />
             <label htmlFor="cancellation-agree" className="text-sm cursor-pointer">
               위약금 규정 및 주의사항을 확인하였습니다.

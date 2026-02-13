@@ -16,21 +16,21 @@ export default function Step5Reservation() {
   const { setValue, watch, formState: { errors } } = useFormContext<RegisterFormData>()
 
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
-      <Card>
+    <div className="space-y-6">
+      <Card className="host-card">
         <CardHeader>
-          <CardTitle>계약 기간 설정</CardTitle>
+          <CardTitle className="text-lg">계약 기간 설정</CardTitle>
           <CardDescription>게스트의 최소/최대 계약 기간을 설정해주세요</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* 최소 계약 기간 */}
           <div className="space-y-2">
-            <Label>최소 계약 기간 <span className="text-destructive">*</span></Label>
+            <Label className="host-label">최소 계약 기간 <span className="text-destructive">*</span></Label>
             <Select
               value={String(watch("minStayWeeks") || 1)}
               onValueChange={(v) => setValue("minStayWeeks", Number(v), { shouldValidate: true })}
             >
-              <SelectTrigger>
+              <SelectTrigger className="host-input">
                 <SelectValue placeholder="선택해주세요" />
               </SelectTrigger>
               <SelectContent>
@@ -48,8 +48,8 @@ export default function Step5Reservation() {
 
           {/* 최대 계약 기간 */}
           <div className="space-y-2">
-            <Label>최대 계약 기간</Label>
-            <div className="p-3 bg-muted rounded-md text-sm text-muted-foreground">
+            <Label className="host-label">최대 계약 기간</Label>
+            <div className="p-3 bg-muted/50 rounded-xl text-sm text-muted-foreground">
               12주 (3개월) — 시스템 고정값
             </div>
           </div>

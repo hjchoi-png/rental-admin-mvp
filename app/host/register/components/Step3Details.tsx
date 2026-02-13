@@ -27,11 +27,11 @@ export default function Step3Details() {
   const hostMessage = watch("hostMessage") || ""
 
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
+    <div className="space-y-6">
       {/* 한 줄 소개 */}
-      <Card>
+      <Card className="host-card">
         <CardHeader>
-          <CardTitle>매물 한 줄 소개 <span className="text-destructive">*</span></CardTitle>
+          <CardTitle className="text-lg">매물 한 줄 소개 <span className="text-destructive">*</span></CardTitle>
           <CardDescription>매물의 매력을 한 줄로 표현해주세요 (5~20자)</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
@@ -40,6 +40,7 @@ export default function Step3Details() {
               {...register("shortTitle")}
               placeholder="예: 역세권 깔끔한 원룸"
               maxLength={20}
+              className="host-input"
             />
             <CharCounter current={shortTitle.length} max={20} />
           </div>
@@ -50,9 +51,9 @@ export default function Step3Details() {
       </Card>
 
       {/* 매물 사진 */}
-      <Card>
+      <Card className="host-card">
         <CardHeader>
-          <CardTitle>매물 사진 <span className="text-destructive">*</span></CardTitle>
+          <CardTitle className="text-lg">매물 사진 <span className="text-destructive">*</span></CardTitle>
           <CardDescription>매물의 사진을 등록해주세요 (최소 5장)</CardDescription>
         </CardHeader>
         <CardContent>
@@ -61,9 +62,9 @@ export default function Step3Details() {
       </Card>
 
       {/* 매물 소개 */}
-      <Card>
+      <Card className="host-card">
         <CardHeader>
-          <CardTitle>매물 소개 <span className="text-destructive">*</span></CardTitle>
+          <CardTitle className="text-lg">매물 소개 <span className="text-destructive">*</span></CardTitle>
           <CardDescription>매물에 대해 자세히 소개해주세요 (최소 30자)</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
@@ -72,6 +73,7 @@ export default function Step3Details() {
             rows={6}
             placeholder="매물의 특장점, 분위기 등을 자유롭게 작성해주세요"
             maxLength={1000}
+            className="host-textarea"
           />
           <div className="flex justify-end">
             <CharCounter current={description.length} max={1000} />
@@ -84,9 +86,9 @@ export default function Step3Details() {
       </Card>
 
       {/* 위치 및 교통 */}
-      <Card>
+      <Card className="host-card">
         <CardHeader>
-          <CardTitle>위치 및 교통</CardTitle>
+          <CardTitle className="text-lg">위치 및 교통</CardTitle>
           <CardDescription>주변 교통편과 편의시설을 알려주세요</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
@@ -95,6 +97,7 @@ export default function Step3Details() {
             rows={4}
             placeholder="주변 교통편, 편의시설 등을 자유롭게 작성해주세요"
             maxLength={1000}
+            className="host-textarea"
           />
           <div className="flex justify-end">
             <CharCounter current={locationTransport.length} max={1000} />
@@ -107,9 +110,9 @@ export default function Step3Details() {
       </Card>
 
       {/* 이용 안내 */}
-      <Card>
+      <Card className="host-card">
         <CardHeader>
-          <CardTitle>이용 안내</CardTitle>
+          <CardTitle className="text-lg">이용 안내</CardTitle>
           <CardDescription>입주 방식과 이용 규칙을 안내해주세요</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
@@ -118,6 +121,7 @@ export default function Step3Details() {
             rows={4}
             placeholder="입주 방식, 이용 규칙 등을 자유롭게 작성해주세요"
             maxLength={1000}
+            className="host-textarea"
           />
           <div className="flex justify-end">
             <CharCounter current={usageGuide.length} max={1000} />
@@ -127,9 +131,9 @@ export default function Step3Details() {
       </Card>
 
       {/* 호스트 메시지 */}
-      <Card>
+      <Card className="host-card">
         <CardHeader>
-          <CardTitle>호스트 메시지</CardTitle>
+          <CardTitle className="text-lg">호스트 메시지</CardTitle>
           <CardDescription>게스트에게 전하고 싶은 메시지를 남겨주세요</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
@@ -138,6 +142,7 @@ export default function Step3Details() {
             rows={4}
             placeholder="인사말, 추천 장소, 생활 팁 등을 자유롭게 작성해주세요"
             maxLength={1000}
+            className="host-textarea"
           />
           <div className="flex justify-end">
             <CharCounter current={hostMessage.length} max={1000} />
