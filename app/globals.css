@@ -62,34 +62,62 @@
 /* ==============================
    호스트 페이지 전용 폼 스타일
    ============================== */
+
+/* host-card: shadcn Card의 기본 rounded-lg border를 덮어써야 하므로
+   !important로 강제 적용 */
+.host-card {
+  border-width: 0 !important;
+  border-radius: 1rem !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+}
+
+/* host-input: shadcn Input의 h-10 rounded-md를 덮어씀 */
+.host-input {
+  height: 3rem !important;
+  font-size: 1rem !important;
+  line-height: 1.5rem !important;
+  padding-left: 1rem !important;
+  padding-right: 1rem !important;
+  border-radius: 0.75rem !important;
+  border-color: hsl(var(--border) / 0.6) !important;
+  transition: box-shadow 0.2s;
+}
+.host-input:focus-visible {
+  --tw-ring-color: hsl(var(--primary) / 0.2);
+  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.2) !important;
+  border-color: hsl(var(--primary)) !important;
+}
+
+/* host-textarea */
+.host-textarea {
+  font-size: 1rem !important;
+  line-height: 1.5rem !important;
+  padding: 0.75rem 1rem !important;
+  border-radius: 0.75rem !important;
+  border-color: hsl(var(--border) / 0.6) !important;
+  transition: box-shadow 0.2s;
+}
+.host-textarea:focus-visible {
+  --tw-ring-color: hsl(var(--primary) / 0.2);
+  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.2) !important;
+  border-color: hsl(var(--primary)) !important;
+}
+
+/* host-btn: shadcn Button의 h-10 rounded-md를 덮어씀 */
+.host-btn {
+  height: 3rem !important;
+  border-radius: 0.75rem !important;
+  font-size: 1rem !important;
+  line-height: 1.5rem !important;
+  font-weight: 600 !important;
+  padding-left: 2rem !important;
+  padding-right: 2rem !important;
+}
+
 @layer components {
-  /* 호스트 폼 Input: 48px, 16px 폰트, 포커스 글로우 */
-  .host-input {
-    @apply h-12 text-base px-4 rounded-xl border-border/60 bg-background
-           transition-shadow duration-200
-           focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary;
-  }
-
-  /* 호스트 폼 Textarea */
-  .host-textarea {
-    @apply text-base px-4 py-3 rounded-xl border-border/60 bg-background
-           transition-shadow duration-200
-           focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary;
-  }
-
   /* 호스트 폼 Label */
   .host-label {
     @apply text-sm font-medium text-foreground;
-  }
-
-  /* 호스트 폼 Card */
-  .host-card {
-    @apply border-0 shadow-sm rounded-2xl bg-card;
-  }
-
-  /* 호스트 CTA 버튼 */
-  .host-btn {
-    @apply h-12 rounded-xl text-base font-semibold px-8;
   }
 
   /* 선택 칩 (옵션, 건물유형 등) */
