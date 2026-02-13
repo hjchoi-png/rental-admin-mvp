@@ -3,6 +3,8 @@
 import { createClient } from "@/utils/supabase/server"
 import { z } from "zod"
 import { runAiInspection } from "@/app/admin/properties/[id]/ai-actions"
+import { checkSystemRules } from "@/lib/inspection/system-rules"
+import { revalidatePath } from "next/cache"
 
 // v2 입력 데이터 검증 규칙 (6단계 폼)
 const propertySchema = z.object({
@@ -175,12 +177,85 @@ export async function createProperty(formData: CreatePropertyInput) {
     return { error: '매물 등록 실패: ' + error.message }
   }
 
-  // AI 자동 검수
+  // ── 자동 검수 파이프라인 ──────────────────────────────
+  // 1단계: 시스템 규칙 체크 (즉시, AI 불필요)
+  try {
+    const ruleResult = await checkSystemRules({
+      id: data.id,
+      address: d.address,
+      dong: d.dong || null,
+      ho: d.ho || null,
+      user_id: user?.id || null,
+      short_title: d.shortTitle,
+      description: d.description,
+      location_transport: d.locationTransport || null,
+      usage_guide: d.usageGuide || null,
+      host_message: d.hostMessage || null,
+      maintenance_detail: d.maintenanceDetail || null,
+      parking_condition: d.parkingCondition || null,
+    })
+
+    if (ruleResult.decision === "reject") {
+      // 시스템 규칙 위반 → 자동 반려
+      await supabase
+        .from("properties")
+        .update({
+          status: "rejected",
+          inspection_result: {
+            systemRules: ruleResult,
+            decision: "reject",
+            decidedAt: new Date().toISOString(),
+            decidedBy: "system",
+          },
+          inspection_rule_violations: ruleResult.violations.map(
+            (v) => `[${v.severity}] ${v.category}: ${v.message}`
+          ),
+          admin_comment: `자동 반려: ${ruleResult.rejectReason}`,
+        })
+        .eq("id", data.id)
+
+      revalidatePath("/admin/properties")
+      revalidatePath("/admin")
+
+      return {
+        success: true,
+        propertyId: data.id,
+        inspectionResult: "rejected",
+        rejectReason: ruleResult.rejectReason,
+      }
+    }
+
+    // 시스템 규칙 통과 → inspection_result에 규칙 결과 저장
+    if (ruleResult.violations.length > 0) {
+      // 위반은 있지만 reject 수준은 아닌 경우 (minor) → 기록만
+      await supabase
+        .from("properties")
+        .update({
+          inspection_result: {
+            systemRules: ruleResult,
+            decision: "pending_ai",
+            decidedAt: new Date().toISOString(),
+          },
+          inspection_rule_violations: ruleResult.violations.map(
+            (v) => `[${v.severity}] ${v.category}: ${v.message}`
+          ),
+        })
+        .eq("id", data.id)
+    }
+  } catch (ruleError) {
+    console.error("시스템 규칙 체크 실패 (등록은 정상 완료):", ruleError)
+    // 시스템 규칙 체크 실패 시에도 AI 검수는 계속 진행
+  }
+
+  // 2단계: AI 정책 검수 (비동기)
   try {
     await runAiInspection(data.id)
   } catch (aiError) {
     console.error('AI 자동 검수 실패 (등록은 정상 완료):', aiError)
   }
+
+  revalidatePath("/admin/properties")
+  revalidatePath("/admin")
 
   return { success: true, propertyId: data.id }
 }

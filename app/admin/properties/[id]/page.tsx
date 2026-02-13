@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import PropertyActions from "./property-actions"
 import PropertyImages from "./property-images"
+import InspectionDetails from "./inspection-details"
 
 type Property = {
   id: string
@@ -28,13 +29,16 @@ type Property = {
   min_stay: string | null
   amenities: string[]
   images: string[]
-  status: "pending" | "approved" | "rejected"
+  status: "pending" | "approved" | "rejected" | "supplement"
   admin_comment?: string | null
   guest_name?: string | null
   guest_email?: string | null
   guest_phone?: string | null
   ai_review_score?: number | null
   ai_review_result?: Record<string, unknown> | null
+  inspection_result?: Record<string, unknown> | null
+  inspection_rule_violations?: string[] | null
+  inspection_ai_violations?: string[] | null
   created_at: string
   updated_at: string
   // v2 fields
@@ -97,15 +101,17 @@ export default async function PropertyDetailPage({
   const property = await getProperty(params.id)
   if (!property) notFound()
 
-  const statusVariants: Record<typeof property.status, "default" | "secondary" | "destructive"> = {
+  const statusVariants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
     approved: "default",
     pending: "secondary",
     rejected: "destructive",
+    supplement: "outline",
   }
-  const statusLabels: Record<typeof property.status, string> = {
+  const statusLabels: Record<string, string> = {
     approved: "승인됨",
     pending: "검토 대기",
     rejected: "반려됨",
+    supplement: "보완 필요",
   }
 
   const InfoRow = ({ label, value }: { label: string; value: React.ReactNode }) => {
@@ -334,52 +340,17 @@ export default async function PropertyDetailPage({
               </div>
             )}
 
-            {/* AI 검수 결과 */}
-            {property.ai_review_score != null && property.ai_review_result && (
-              <div className="space-y-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-blue-900">AI 검수 결과</h3>
-                  <div className="text-2xl font-bold text-blue-700">
-                    {property.ai_review_score}점
-                  </div>
-                </div>
-                {(() => {
-                  const result = property.ai_review_result as {
-                    categories?: { name: string; score: number; maxScore: number; comment: string }[]
-                    summary?: string
-                    inspectedAt?: string
-                  }
-                  return (
-                    <>
-                      {result.categories && (
-                        <div className="space-y-2">
-                          {result.categories.map((cat) => (
-                            <div key={cat.name} className="flex items-center gap-3">
-                              <span className="text-sm font-medium w-20 text-blue-800">{cat.name}</span>
-                              <div className="flex-1 bg-blue-100 rounded-full h-2">
-                                <div
-                                  className="bg-blue-600 rounded-full h-2"
-                                  style={{ width: `${(cat.score / cat.maxScore) * 100}%` }}
-                                />
-                              </div>
-                              <span className="text-sm font-bold w-12 text-right text-blue-700">{cat.score}/{cat.maxScore}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {result.summary && (
-                        <p className="text-sm text-blue-800 mt-2">{result.summary}</p>
-                      )}
-                      {result.inspectedAt && (
-                        <p className="text-xs text-blue-500">
-                          검수일: {new Date(result.inspectedAt).toLocaleString("ko-KR")}
-                        </p>
-                      )}
-                    </>
-                  )
-                })()}
-              </div>
-            )}
+            {/* 자동 검수 결과 */}
+            <div className="space-y-3">
+              <h3 className="text-lg font-semibold">자동 검수 결과</h3>
+              <InspectionDetails
+                inspectionResult={property.inspection_result as Record<string, unknown> | null}
+                ruleViolations={property.inspection_rule_violations || null}
+                aiViolations={property.inspection_ai_violations || null}
+                aiReviewScore={property.ai_review_score ?? null}
+                status={property.status}
+              />
+            </div>
 
             {/* 검토 액션 */}
             <div className="pt-4 border-t">

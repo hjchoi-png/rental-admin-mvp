@@ -20,7 +20,7 @@ import { runAiInspection } from "./ai-actions"
 
 interface PropertyActionsProps {
   propertyId: string
-  currentStatus: "pending" | "approved" | "rejected"
+  currentStatus: "pending" | "approved" | "rejected" | "supplement"
 }
 
 export default function PropertyActions({
