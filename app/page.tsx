@@ -1,6 +1,8 @@
+"use client"
+
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { House, ShieldCheck, Lightning, ArrowRight, Star } from "@phosphor-icons/react/dist/ssr"
+import { House, ShieldCheck, Lightning, ArrowRight, Star } from "@phosphor-icons/react"
 
 export default function HomePage() {
   return (
