@@ -76,6 +76,7 @@ export default function ChatbotClient({
   }
 
   const handleDeleteSession = async (sessionId: string) => {
+    if (!confirm("이 대화를 삭제하시겠습니까?")) return
     const result = await deleteSession(sessionId)
     if (result.success) {
       setSessions((prev) => prev.filter((s) => s.id !== sessionId))

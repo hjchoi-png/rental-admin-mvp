@@ -1,8 +1,9 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
-import { Send, Loader2, Bot, User, FileText, ThumbsUp, ThumbsDown } from "lucide-react"
+import { useState, useEffect, useRef, useCallback } from "react"
+import { Send, Loader2, Bot, User, FileText, ThumbsUp, ThumbsDown, Copy, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import ReactMarkdown from "react-markdown"
 import { getMessages, sendMessage, submitFeedback } from "./actions"
 
 interface Message {
@@ -26,11 +27,12 @@ interface ChatInterfaceProps {
 }
 
 const QUICK_QUESTIONS = [
-  "최소 계약 기간은 어떻게 되나요?",
-  "수수료는 어떻게 계산되나요?",
-  "보증금 반환 절차는?",
+  "단기임대 서비스는 어떤 서비스인가요?",
+  "플랫폼 수수료는 어떻게 되나요?",
+  "보증금 반환 절차를 알려주세요",
   "매물 검수 기준이 뭔가요?",
-  "환불 정책을 알려주세요",
+  "환불(위약금) 정책을 알려주세요",
+  "호스트가 되려면 어떤 조건이 필요한가요?",
 ]
 
 export default function ChatInterface({
@@ -62,11 +64,23 @@ export default function ChatInterface({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
+  // textarea 자동 리사이즈
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value)
+    const el = e.target
+    el.style.height = "auto"
+    el.style.height = Math.min(el.scrollHeight, 120) + "px"
+  }, [])
+
   const handleSend = async (text?: string) => {
     const messageText = text || input.trim()
     if (!messageText || isLoading) return
 
     setInput("")
+    // textarea 높이 리셋
+    if (inputRef.current) {
+      inputRef.current.style.height = "auto"
+    }
     setIsLoading(true)
 
     // 낙관적 업데이트 — 사용자 메시지 즉시 표시
@@ -172,13 +186,13 @@ export default function ChatInterface({
 
       {/* 입력 영역 */}
       <div className="border-t p-4">
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-end">
           <textarea
             ref={inputRef}
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={handleInputChange}
             onKeyDown={handleKeyDown}
-            placeholder="정책에 대해 질문하세요..."
+            placeholder="정책에 대해 질문하세요... (Shift+Enter로 줄바꿈)"
             className="flex-1 resize-none border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 min-h-[42px] max-h-[120px]"
             rows={1}
             disabled={isLoading}
@@ -211,7 +225,7 @@ function WelcomeScreen({
       <p className="text-sm text-muted-foreground mb-6 text-center">
         정책 문서를 기반으로 답변합니다. 아래 질문을 클릭하거나 직접 입력하세요.
       </p>
-      <div className="flex flex-wrap gap-2 max-w-md justify-center">
+      <div className="flex flex-wrap gap-2 max-w-lg justify-center">
         {QUICK_QUESTIONS.map((q) => (
           <button
             key={q}
@@ -223,6 +237,30 @@ function WelcomeScreen({
         ))}
       </div>
     </div>
+  )
+}
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <button
+      onClick={handleCopy}
+      className="p-1 rounded transition-colors text-muted-foreground/40 hover:text-foreground hover:bg-muted/50"
+      title="복사"
+    >
+      {copied ? (
+        <Check className="h-3.5 w-3.5 text-green-600" strokeWidth={1.5} />
+      ) : (
+        <Copy className="h-3.5 w-3.5" strokeWidth={1.5} />
+      )}
+    </button>
   )
 }
 
@@ -259,7 +297,13 @@ function MessageBubble({
               : "bg-muted/50 text-foreground"
           }`}
         >
-          <div className="whitespace-pre-wrap">{message.content}</div>
+          {isUser ? (
+            <div className="whitespace-pre-wrap">{message.content}</div>
+          ) : (
+            <div className="prose prose-sm prose-neutral max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_p]:my-1.5 [&_ul]:my-1.5 [&_ol]:my-1.5 [&_li]:my-0.5 [&_strong]:font-semibold [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm [&_h1]:font-semibold [&_h2]:font-semibold [&_h3]:font-semibold [&_h1]:mt-3 [&_h2]:mt-2 [&_h3]:mt-2 [&_h1]:mb-1 [&_h2]:mb-1 [&_h3]:mb-1">
+              <ReactMarkdown>{message.content}</ReactMarkdown>
+            </div>
+          )}
         </div>
 
         {/* 출처 표시 */}
@@ -278,9 +322,10 @@ function MessageBubble({
           </div>
         )}
 
-        {/* 피드백 버튼 (어시스턴트 메시지만) */}
+        {/* 피드백 + 복사 버튼 (어시스턴트 메시지만) */}
         {!isUser && (
           <div className="mt-1.5 flex items-center gap-1">
+            <CopyButton text={message.content} />
             <button
               onClick={() => onFeedback(message.id, "helpful")}
               className={`p-1 rounded transition-colors ${
