@@ -133,10 +133,6 @@ export async function sendMessage(
   const guard = await requireAdmin()
   if (!guard.authorized) return { success: false, error: guard.error }
 
-  if (!process.env.OPENAI_API_KEY) {
-    return { success: false, error: "OPENAI_API_KEY가 설정되지 않았습니다." }
-  }
-
   const supabase = await createClient()
 
   // 세션 소유권 + 매물 맥락 확인
