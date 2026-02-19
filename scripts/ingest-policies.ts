@@ -17,9 +17,10 @@ import { chunkMarkdown } from "../lib/rag/chunker"
 import type { DocumentChunk } from "../lib/rag/types"
 
 // 환경 변수 로드 (.env.local)
-import "dotenv/config"
+import * as dotenv from "dotenv"
+dotenv.config({ path: path.resolve(__dirname, "../.env.local") })
 
-const POLICY_DIR = path.resolve(__dirname, "../../STR-정책/files (1)")
+const POLICY_DIR = path.resolve(__dirname, "../data/policies")
 const EMBEDDING_MODEL = "text-embedding-3-small"
 const EMBEDDING_DIMENSIONS = 1536
 const BATCH_SIZE = 100

@@ -57,6 +57,9 @@ export type ChunkContentType = "qa_pair" | "policy_rule" | "reference"
 /** 파일명 → 카테고리 매핑 */
 export const FILE_CATEGORY_MAP: Record<string, { category: ChunkCategory; priority: number; target: ChunkTarget }> = {
   "FAQ.md": { category: "faq", priority: 0, target: "common" },
+  "FAQ_공통.md": { category: "faq", priority: 0, target: "common" },
+  "FAQ_호스트.md": { category: "faq", priority: 0, target: "host" },
+  "FAQ_게스트.md": { category: "faq", priority: 0, target: "guest" },
   "운영-1_매물검수.md": { category: "operation", priority: 0, target: "common" },
   "정책-1_법적기준.md": { category: "policy", priority: 0, target: "common" },
   "정책-2_가격정책.md": { category: "policy", priority: 0, target: "common" },

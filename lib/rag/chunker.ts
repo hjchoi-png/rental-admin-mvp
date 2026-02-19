@@ -12,7 +12,8 @@ interface ChunkOptions {
 /**
  * 마크다운 파일을 벡터 저장용 청크로 분할
  *
- * - FAQ.md: 파이프 구분 Q+A 쌍 단위
+ * - FAQ.md: 파이프 구분 Q+A 쌍 단위 (구 형식)
+ * - FAQ_공통/호스트/게스트.md: 마크다운 ### Q. / A. 쌍 단위
  * - 나머지: 헤더(##) 기반 섹션 분할 + 오버랩
  */
 export function chunkMarkdown(
@@ -28,6 +29,10 @@ export function chunkMarkdown(
 
   if (filename === "FAQ.md") {
     return chunkFAQ(content, filename, meta)
+  }
+
+  if (filename.startsWith("FAQ_")) {
+    return chunkMarkdownFAQ(content, filename, meta)
   }
 
   return chunkByHeaders(content, filename, meta, options)
@@ -126,6 +131,92 @@ function chunkFAQ(
       continue
     }
   }
+
+  return chunks
+}
+
+/**
+ * 마크다운 FAQ 청킹 — ### Q. / A. 형식
+ *
+ * FAQ_공통.md, FAQ_호스트.md, FAQ_게스트.md 전용
+ *
+ * 형식:
+ *   ### Q. 질문 내용
+ *   *분류: [카테고리] (상태)*
+ *
+ *   A. 답변 내용 (여러 줄 가능)
+ *
+ * 각 Q+A 쌍을 하나의 qa_pair 청크로 생성한다.
+ * 분류 메타데이터를 sectionTitle에 포함한다.
+ */
+function chunkMarkdownFAQ(
+  content: string,
+  filename: string,
+  meta: { category: ChunkCategory; priority: number; target: ChunkTarget }
+): DocumentChunk[] {
+  const chunks: DocumentChunk[] = []
+  const lines = content.split("\n")
+
+  let currentQuestion: string | null = null
+  let currentCategory = ""
+  let currentAnswer: string[] = []
+  let inAnswer = false
+
+  function flushQA() {
+    if (currentQuestion && currentAnswer.length > 0) {
+      const answer = currentAnswer.join("\n").trim()
+      if (answer) {
+        chunks.push({
+          content: `Q: ${currentQuestion}\nA: ${answer}`,
+          sourceFile: filename,
+          category: meta.category,
+          target: meta.target,
+          sectionTitle: currentCategory || "FAQ",
+          priority: meta.priority,
+          contentType: "qa_pair" as ChunkContentType,
+        })
+      }
+    }
+    currentQuestion = null
+    currentCategory = ""
+    currentAnswer = []
+    inAnswer = false
+  }
+
+  for (const line of lines) {
+    // ### Q. 질문
+    const qMatch = line.match(/^###\s+Q\.\s*(.+)/)
+    if (qMatch) {
+      flushQA()
+      currentQuestion = qMatch[1].trim()
+      continue
+    }
+
+    // *분류: [카테고리] (상태)*
+    const catMatch = line.match(/^\*분류:\s*\[(.+?)\]/)
+    if (catMatch && currentQuestion) {
+      currentCategory = catMatch[1].trim()
+      continue
+    }
+
+    // A. 답변 시작
+    const aMatch = line.match(/^A\.\s*(.*)/)
+    if (aMatch && currentQuestion) {
+      inAnswer = true
+      if (aMatch[1].trim()) {
+        currentAnswer.push(aMatch[1].trim())
+      }
+      continue
+    }
+
+    // 답변 계속 (다음 Q가 나올 때까지)
+    if (inAnswer && line.trim()) {
+      currentAnswer.push(line.trim())
+    }
+  }
+
+  // 마지막 Q&A 쌍 처리
+  flushQA()
 
   return chunks
 }
