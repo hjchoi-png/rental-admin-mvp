@@ -302,8 +302,10 @@ function pushChunks(
       contentType: "policy_rule" as ChunkContentType,
     })
 
-    start = end - overlap
-    if (start >= text.length) break
+    if (end === text.length) break
+    const nextStart = end - overlap
+    if (nextStart <= start) break // 무한 루프 방지
+    start = nextStart
   }
 }
 
