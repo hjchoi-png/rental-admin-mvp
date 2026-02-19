@@ -9,7 +9,7 @@ import {
   createColumnHelper,
   flexRender,
 } from "@tanstack/react-table"
-import { Check, X, Search, CheckSquare, XSquare, Filter, SlidersHorizontal } from "lucide-react"
+import { Check, X, Search, CheckSquare, XSquare, AlertCircle, Filter, SlidersHorizontal } from "lucide-react"
 
 import {
   Table,
@@ -45,6 +45,7 @@ import {
   rejectProperty,
   bulkApproveProperties,
   bulkRejectProperties,
+  bulkSupplementProperties,
 } from "./actions"
 import type { PropertyListItem, PropertyStatus } from "@/types/property"
 import { STATUS_VARIANTS, STATUS_LABELS } from "@/types/property"
@@ -91,6 +92,8 @@ function PropertiesAdminPage() {
   const [rejectComment, setRejectComment] = useState("")
   const [selectedPropertyIds, setSelectedPropertyIds] = useState<Set<string>>(new Set())
   const [bulkRejectDialogOpen, setBulkRejectDialogOpen] = useState(false)
+  const [bulkSupplementDialogOpen, setBulkSupplementDialogOpen] = useState(false)
+  const [supplementComment, setSupplementComment] = useState("")
   const [bulkProcessing, setBulkProcessing] = useState(false)
   const [advancedFilterOpen, setAdvancedFilterOpen] = useState(false)
   const [priceRange, setPriceRange] = useState({ min: "", max: "" })
@@ -112,7 +115,7 @@ function PropertiesAdminPage() {
       }
     }
     loadTemplates()
-  }, [rejectDialogOpen, bulkRejectDialogOpen])
+  }, [rejectDialogOpen, bulkRejectDialogOpen, bulkSupplementDialogOpen])
 
   const loadProperties = useCallback(async () => {
     try {
@@ -257,6 +260,41 @@ function PropertiesAdminPage() {
       toast({
         title: "일괄 반려 실패",
         description: error instanceof Error ? error.message : "일괄 반려 중 오류가 발생했습니다.",
+        variant: "destructive",
+      })
+    } finally {
+      setBulkProcessing(false)
+    }
+  }
+
+  const handleBulkSupplement = async () => {
+    if (selectedPropertyIds.size === 0) return
+    if (!supplementComment.trim()) {
+      toast({ title: "보완 요청 사유를 입력해주세요", variant: "destructive" })
+      return
+    }
+    setBulkProcessing(true)
+    try {
+      const result = await bulkSupplementProperties(
+        Array.from(selectedPropertyIds),
+        supplementComment
+      )
+      if (result.success) {
+        toast({
+          title: "일괄 보완 요청 완료",
+          description: `${result.count}개의 매물에 보완을 요청했습니다.`,
+        })
+        setBulkSupplementDialogOpen(false)
+        setSupplementComment("")
+        setSelectedPropertyIds(new Set())
+        await loadProperties()
+      } else {
+        throw new Error(result.error || "일괄 보완 요청 실패")
+      }
+    } catch (error) {
+      toast({
+        title: "일괄 보완 요청 실패",
+        description: error instanceof Error ? error.message : "일괄 보완 요청 중 오류가 발생했습니다.",
         variant: "destructive",
       })
     } finally {
@@ -622,6 +660,16 @@ function PropertiesAdminPage() {
                 </Button>
                 <Button
                   size="sm"
+                  variant="outline"
+                  onClick={() => setBulkSupplementDialogOpen(true)}
+                  disabled={bulkProcessing}
+                  className="border-orange-300 text-orange-700 hover:bg-orange-50"
+                >
+                  <AlertCircle className="h-4 w-4 mr-1" />
+                  일괄 보완 요청
+                </Button>
+                <Button
+                  size="sm"
                   variant="destructive"
                   onClick={() => setBulkRejectDialogOpen(true)}
                   disabled={bulkProcessing}
@@ -826,6 +874,50 @@ function PropertiesAdminPage() {
               disabled={bulkProcessing}
             >
               {bulkProcessing ? "처리 중..." : "일괄 반려하기"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 일괄 보완 요청 다이얼로그 */}
+      <Dialog open={bulkSupplementDialogOpen} onOpenChange={setBulkSupplementDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>일괄 보완 요청</DialogTitle>
+            <DialogDescription>
+              선택한 {selectedPropertyIds.size}개의 매물에 보완을 요청합니다. 보완 사유를
+              입력해주세요.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="bulk-supplement-comment">보완 요청 사유</Label>
+              <Textarea
+                id="bulk-supplement-comment"
+                placeholder="보완이 필요한 사유를 입력해주세요... (예: 실내 사진 추가 필요, 매물 설명 보완 필요)"
+                value={supplementComment}
+                onChange={(e) => setSupplementComment(e.target.value)}
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setBulkSupplementDialogOpen(false)
+                setSupplementComment("")
+              }}
+              disabled={bulkProcessing}
+            >
+              취소
+            </Button>
+            <Button
+              onClick={handleBulkSupplement}
+              disabled={bulkProcessing}
+              className="bg-orange-600 hover:bg-orange-700"
+            >
+              {bulkProcessing ? "처리 중..." : "일괄 보완 요청하기"}
             </Button>
           </DialogFooter>
         </DialogContent>

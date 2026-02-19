@@ -87,10 +87,11 @@ rental-admin-mvp/
 │       │   ├── page.tsx               ← 설정 (자동승인, 검수 규칙)
 │       │   ├── actions.ts             ← 설정 서버 액션
 │       │   └── forbidden-words.tsx    ← 금칙어 관리 UI
-│       ├── cs-chatbot/                ← CS 챗봇 (RAG 기반)
-│       │   ├── page.tsx               ← 챗봇 메인 (세션 목록 + 채팅)
-│       │   ├── actions.ts             ← 서버 액션 (sendMessage, createSession)
-│       │   └── chat-interface.tsx     ← 채팅 UI 컴포넌트
+│       ├── cs-chatbot/                ← CS 챗봇 (RAG 기반, 구현 완료)
+│       │   ├── page.tsx               ← 챗봇 메인 (서버 컴포넌트 래퍼)
+│       │   ├── chatbot-client.tsx     ← 2패널 레이아웃 (세션 목록 + 채팅)
+│       │   ├── chat-interface.tsx     ← 채팅 UI (빠른 질문, 출처 표시)
+│       │   └── actions.ts             ← 서버 액션 (sendMessage, createSession)
 │       └── audit-logs/                ← 감사 로그
 ├── types/
 │   ├── property.ts                    ← 매물 공통 타입 (단일 소스)
@@ -101,10 +102,14 @@ rental-admin-mvp/
 │   ├── admin-guard.ts                 ← Admin 권한 검증 유틸리티
 │   ├── audit-log.ts                   ← 감사 로그 기록/조회
 │   ├── env.ts                         ← 환경 변수 검증 (zod)
-│   └── rag/                           ← RAG 파이프라인 (설계 완료, 구현 대기)
-│       └── (미구현 — docs/rag-design.md 참조)
+│   └── rag/                           ← RAG 파이프라인
+│       ├── types.ts                   ← RAG 관련 타입 정의
+│       ├── embeddings.ts              ← OpenAI text-embedding-3-small
+│       ├── chunker.ts                 ← MD → 청크 분할 (FAQ Q+A / 헤더 기반)
+│       ├── vector-search.ts           ← pgvector 유사도 검색
+│       └── chat.ts                    ← Claude RAG 파이프라인 오케스트레이션
 ├── scripts/
-│   └── ingest-policies.ts             ← 정책 문서 벡터 인제스트 (CLI, 미구현)
+│   └── ingest-policies.ts             ← 정책 문서 벡터 인제스트 CLI
 ├── components/
 │   ├── LoadingSpinner.tsx             ← 공통 로딩 컴포넌트
 │   ├── ErrorMessage.tsx               ← 공통 에러 메시지 컴포넌트
@@ -176,19 +181,21 @@ ANTHROPIC_API_KEY=
 ## 7. 로드맵 (큰 그림)
 
 ### 완료된 것
-- Phase 1: DB 스키마 + 시스템 규칙 엔진
-- Phase 2: AI 프롬프트 리팩토링 (품질 채점 → 정책 위반 탐지)
-- Phase 3: Admin UI (검수 결과 표시, 금칙어 관리, 보완 상태)
-- Phase 4: 대시보드 통계 확장
+- 자동 검수: DB 스키마 + 시스템 규칙 엔진 + AI 정책 위반 탐지 + Admin UI
+- 호스트 보완 워크플로우: 대시보드 → 상세 → 보완 피드백 → 수정/재제출 → 알림
+- CS 챗봇 RAG: Phase 1~4 전체 완성 (벡터 인프라 + 검색/응답 + UI + 매물 맥락 연동 + 답변 피드백)
+- 감사 로그: 수동 + 자동 검수 전 이벤트 커버 (8개 액션 타입)
+- 일괄 처리: 승인/반려/보완 요청 3종 완성
 
-### 진행 중
-- CS 챗봇 RAG 설계 완료 → 구현 준비 (docs/rag-design.md 참조)
+### 즉시 필요 (환경 설정 — 사용자 액션)
+- Supabase 마이그레이션 4개 실행
+- 정책 문서 인제스트 (`npx tsx scripts/ingest-policies.ts`)
+- ANTHROPIC_API_KEY 환경 변수 설정
+- 실환경 테스트 (검수, 호스트 보완, CS 챗봇)
 
 ### 다음 목표
-- 검수 시스템 마이그레이션 실행 및 실환경 테스트
-- CS 챗봇 RAG 구현 (Phase 1~3)
-- 호스트 보완 요청 알림/워크플로우
-- 일괄 처리 고도화
+- 정책 문서 업데이트 시 자동 재인제스트
+- 호스트/게스트 관리 기능 (운영-2 정책 기반)
 
 ---
 
@@ -237,7 +244,57 @@ ANTHROPIC_API_KEY=
 
 ---
 
-## 10. 참조 문서
+## 10. 자동 스킬 적용 규칙 (Agent Skill Auto-Dispatch)
+
+> **핵심 원칙: 사용자(Justin)는 스킬 이름을 몰라도 된다. Claude가 작업 맥락을 보고 자동으로 적용한다.**
+
+### 자동 적용 매트릭스
+
+Claude는 아래 상황을 감지하면 해당 스킬을 **자동으로** 참조하여 작업에 반영한다:
+
+| 상황 감지 | 자동 적용 스킬 | 비고 |
+|-----------|---------------|------|
+| `.sql` 파일 수정, DB 쿼리 작성 | supabase-postgres-best-practices, postgresql-table-design, sql-optimization-patterns | |
+| `.tsx`/`.ts` 파일 수정 (app/ 하위) | next-best-practices, nextjs-app-router-patterns | |
+| 컴포넌트 구조 설계, Props 설계 | vercel-composition-patterns, vercel-react-best-practices | |
+| 상태 관리 코드 작성 | react-state-management | |
+| TypeScript 타입 정의 | typescript-advanced-types | |
+| 테스트 코드 작성 | javascript-testing-patterns, test-driven-development | |
+| E2E 테스트 작성 | e2e-testing-patterns, webapp-testing | |
+| 버그 조사/수정 | systematic-debugging, debugging-strategies | |
+| UI/디자인 작업 | frontend-design, tailwind-design-system, design-system-patterns | |
+| 반응형 레이아웃 | responsive-design | |
+| 에러 처리 코드 | error-handling-patterns | |
+| API 설계/수정 | api-design-principles | |
+| 인증/권한 코드 | auth-implementation-patterns, secrets-management | |
+| RAG/임베딩 작업 | rag-implementation, embedding-strategies | |
+| DB 마이그레이션 | database-migration | |
+| 배포/CI/CD 작업 | deployment-pipeline-design | |
+| AI 프롬프트 작성 | prompt-engineering-patterns | |
+| 작업 완료 선언 전 | verification-before-completion | **항상** |
+
+### 워크플로우 스킬 자동 체인
+
+복합 작업 시 Claude는 다음 스킬 체인을 자동으로 따른다:
+
+1. **새 기능 구현**: brainstorming → writing-plans → (사용자 확인) → executing-plans → verification-before-completion
+2. **버그 수정**: systematic-debugging → test-driven-development → verification-before-completion
+3. **코드 리뷰 요청**: requesting-code-review → code-review-excellence
+4. **브랜치 완료**: finishing-a-development-branch → verification-before-completion
+5. **대규모 작업**: dispatching-parallel-agents → subagent-driven-development
+
+### 슬래시 커맨드 (사용자용)
+
+사용자는 `.claude/commands/` 에 정의된 워크플로우 커맨드를 사용할 수 있다:
+- `/project:새기능` — 새 기능 전체 워크플로우
+- `/project:버그수정` — 버그 수정 워크플로우
+- `/project:코드점검` — 코드 품질 점검
+- `/project:배포준비` — 배포 전 최종 체크
+- `/project:현황` — 프로젝트 현재 상태 종합 리포트
+
+---
+
+## 11. 참조 문서
 
 | 문서 | 위치 | 설명 |
 |------|------|------|

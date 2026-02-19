@@ -15,14 +15,22 @@ export type AuditAction =
   | "property_supplement"
   | "property_bulk_approved"
   | "property_bulk_rejected"
+  | "property_bulk_supplement"
   | "settings_updated"
   | "forbidden_word_added"
   | "forbidden_word_deleted"
   | "ai_inspection_run"
+  // 자동 검수 관련
+  | "auto_rejected_system"     // 시스템 규칙 자동 반려
+  | "auto_rejected_ai"         // AI 자동 반려
+  | "auto_approved"            // AI 자동 승인
+  | "auto_supplement"          // AI 보완 요청
+  | "auto_approved_no_ai"      // AI 비활성 상태 자동 승인
+  | "host_resubmitted"         // 호스트 재제출
 
 export interface AuditLogEntry {
   action: AuditAction
-  admin_user_id: string
+  admin_user_id: string | null  // null = 자동(시스템) 처리
   target_id?: string        // 대상 매물 ID 등
   target_type?: string      // "property" | "settings" | "forbidden_word"
   details?: Record<string, unknown>  // 추가 정보 (변경 전/후 등)

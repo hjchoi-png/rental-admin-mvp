@@ -204,6 +204,42 @@ export async function bulkRejectProperties(
 }
 
 /**
+ * 일괄 보완 요청 (여러 매물을 한번에 보완 요청)
+ */
+export async function bulkSupplementProperties(
+  propertyIds: string[],
+  adminComment: string
+) {
+  const guard = await requireAdmin()
+  if (!guard.authorized) return { success: false, error: guard.error, count: 0 }
+
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from("properties")
+    .update({
+      status: "supplement",
+      admin_comment: adminComment,
+    })
+    .in("id", propertyIds)
+    .select()
+
+  if (error) {
+    return { success: false, error: error.message, count: 0 }
+  }
+
+  await insertAuditLog({
+    action: "property_bulk_supplement",
+    admin_user_id: guard.userId,
+    target_type: "property",
+    details: { property_ids: propertyIds, count: data?.length || 0, admin_comment: adminComment },
+  })
+
+  revalidatePath("/admin/properties")
+  return { success: true, count: data?.length || 0 }
+}
+
+/**
  * 지역별 매물 통계 조회
  */
 export async function fetchPropertiesByRegion() {

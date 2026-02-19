@@ -5,6 +5,8 @@ import { z } from "zod"
 import { runAiInspection } from "@/app/admin/properties/[id]/ai-actions"
 import { checkSystemRules } from "@/lib/inspection/system-rules"
 import { revalidatePath } from "next/cache"
+import { formDataToDbColumns } from "@/lib/property-mapper"
+import { insertAuditLog } from "@/lib/audit-log"
 
 // v2 입력 데이터 검증 규칙 (6단계 폼)
 const propertySchema = z.object({
@@ -89,76 +91,9 @@ export async function createProperty(formData: CreatePropertyInput) {
 
   const d = parsed.data
 
-  const addressDetail = `${d.dong || ""}${d.dong ? " " : ""}${d.ho || ""}`.trim()
-
   const propertyData: Record<string, unknown> = {
-    // 기존 필드
-    title: d.shortTitle,
-    address: d.address,
-    detail_address: addressDetail || null,
-    address_detail: addressDetail || null,
-    property_type: d.buildingType,
-    room_count: d.roomCount,
-    bathroom_count: d.bathroomCount,
-    max_guests: d.roomCount * 2,
-    area_sqm: d.areaSqm || null,
-    price_per_week: d.weeklyPrice,
-    monthly_price: d.weeklyPrice * 4,
-    maintenance_included: (d.maintenanceFee || 0) === 0,
-    deposit: d.deposit || 300000,
-    description: d.description,
-    min_stay: d.minStayWeeks ? `${d.minStayWeeks}주` : "1주",
-    amenities: d.amenities || [],
-    images: d.images || [],
+    ...formDataToDbColumns(d),
     status: 'pending',
-
-    // 신규 v2 필드
-    dong: d.dong || null,
-    ho: d.ho || null,
-    dong_none: d.dongNone || false,
-    total_floors: d.totalFloors || null,
-    floor_number: d.floorNumber || null,
-    floor_type: d.floorType || null,
-    building_type: d.buildingType,
-    kitchen_count: d.kitchenCount || 0,
-    living_room_count: d.livingRoomCount || 0,
-    area_pyeong: d.areaPyeong || null,
-    area_unit: d.areaUnit || "㎡",
-    has_elevator: d.hasElevator ?? null,
-    parking: d.parking || "불가능",
-    parking_type: d.parkingType || null,
-    parking_count: d.parkingCount || 0,
-    parking_condition: d.parkingCondition || null,
-
-    pet_allowed: d.petAllowed ?? null,
-
-    short_title: d.shortTitle,
-    location_transport: d.locationTransport || null,
-    usage_guide: d.usageGuide || null,
-    host_message: d.hostMessage || null,
-
-    long_term_discounts: d.longTermDiscounts || [],
-    instant_move_discounts: d.instantMoveDiscounts || [],
-    maintenance_fee: d.maintenanceFee || 0,
-    maintenance_electric: d.maintenanceElectric || false,
-    maintenance_water: d.maintenanceWater || false,
-    maintenance_gas: d.maintenanceGas || false,
-    maintenance_detail: d.maintenanceDetail || null,
-    cleaning_free: d.cleaningFree || false,
-    checkout_cleaning_fee: d.checkoutCleaningFee || 0,
-    pet_cleaning_fee: d.petCleaningFee || 0,
-    cancellation_policy: d.cancellationPolicy || null,
-    cancellation_agreed: d.cancellationAgreed || false,
-
-    min_stay_weeks: d.minStayWeeks || 1,
-    max_stay_weeks: d.maxStayWeeks || 12,
-    blocked_dates: d.blockedDates || [],
-
-    checkin_time: d.checkinTime || "15:00",
-    checkin_method: d.checkinMethod || "비대면",
-    checkout_time: d.checkoutTime || "11:00",
-    checkout_method: d.checkoutMethod || "비대면",
-
     host_id: user ? user.id : null,
     guest_name: user ? null : d.guestName || null,
     guest_email: user ? null : d.guestEmail || null,
@@ -213,6 +148,18 @@ export async function createProperty(formData: CreatePropertyInput) {
           admin_comment: `자동 반려: ${ruleResult.rejectReason}`,
         })
         .eq("id", data.id)
+
+      // 감사 로그: 시스템 규칙 자동 반려
+      await insertAuditLog({
+        action: "auto_rejected_system",
+        admin_user_id: null,
+        target_id: data.id,
+        target_type: "property",
+        details: {
+          reason: ruleResult.rejectReason,
+          violations: ruleResult.violations.map((v) => `[${v.severity}] ${v.category}: ${v.message}`),
+        },
+      })
 
       revalidatePath("/admin/properties")
       revalidatePath("/admin")

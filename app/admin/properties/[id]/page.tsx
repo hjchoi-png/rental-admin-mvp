@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import { createClient } from "@/utils/supabase/server"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, MessageCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import PropertyActions from "./property-actions"
@@ -138,6 +138,12 @@ export default async function PropertyDetailPage({
           <div className="flex-1">
             <h1 className="text-3xl font-bold tracking-tight">매물 상세 검토</h1>
           </div>
+          <Link href={`/admin/cs-chatbot?propertyId=${property.id}`}>
+            <Button variant="outline" size="sm">
+              <MessageCircle className="h-4 w-4 mr-1.5" strokeWidth={1.5} />
+              이 매물에 대해 질문
+            </Button>
+          </Link>
         </div>
 
         {/* 2컬럼 레이아웃 */}

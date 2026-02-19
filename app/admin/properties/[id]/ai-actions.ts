@@ -3,6 +3,7 @@
 import { createClient } from "@/utils/supabase/server"
 import { revalidatePath } from "next/cache"
 import OpenAI from "openai"
+import { insertAuditLog } from "@/lib/audit-log"
 
 const getOpenAIClient = () => {
   const apiKey = process.env.OPENAI_API_KEY
@@ -358,16 +359,52 @@ async function finalizeInspection(
     finalStatus = "rejected"
     const criticalViolation = aiResult.violations.find((v) => v.severity === "critical")
     adminComment = `AI 자동 반려: ${criticalViolation?.description || aiResult.violations[0]?.description || "정책 위반 탐지"}`
+
+    await insertAuditLog({
+      action: "auto_rejected_ai",
+      admin_user_id: null,
+      target_id: propertyId,
+      target_type: "property",
+      details: {
+        reason: adminComment,
+        violations: aiResult.violations.map((v) => `[${v.severity}] ${v.type}: ${v.description}`),
+        score: aiResult.totalScore,
+      },
+    })
   } else if (majorCount === 1 || minorCount >= 3) {
     // 보완 요청
     finalStatus = "supplement"
     const mainViolation = aiResult.violations.find((v) => v.severity === "major") || aiResult.violations[0]
     adminComment = `AI 검수 보완 요청: ${mainViolation?.description || "일부 항목 보완 필요"}`
+
+    await insertAuditLog({
+      action: "auto_supplement",
+      admin_user_id: null,
+      target_id: propertyId,
+      target_type: "property",
+      details: {
+        reason: adminComment,
+        violations: aiResult.violations.map((v) => `[${v.severity}] ${v.type}: ${v.description}`),
+        score: aiResult.totalScore,
+      },
+    })
   } else if (aiResult.violations.length === 0 || (minorCount <= 2 && majorCount === 0)) {
     // 위반 없음 또는 경미
     if (autoApprovalEnabled && aiResult.totalScore >= autoApprovalThreshold) {
       finalStatus = "approved"
       adminComment = null
+
+      await insertAuditLog({
+        action: "auto_approved",
+        admin_user_id: null,
+        target_id: propertyId,
+        target_type: "property",
+        details: {
+          score: aiResult.totalScore,
+          threshold: autoApprovalThreshold,
+          minorViolations: minorCount,
+        },
+      })
     } else {
       // 수동 검토 대기 (상태 유지)
       finalStatus = "pending"
@@ -442,5 +479,13 @@ async function finalizeWithoutAi(propertyId: string) {
         },
       })
       .eq("id", propertyId)
+
+    await insertAuditLog({
+      action: "auto_approved_no_ai",
+      admin_user_id: null,
+      target_id: propertyId,
+      target_type: "property",
+      details: { note: "AI 비활성 상태, 시스템 규칙 통과 자동 승인" },
+    })
   }
 }

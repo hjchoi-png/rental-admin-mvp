@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useCallback, useMemo } from "react"
+import { useState, useRef, useCallback, useMemo, useEffect } from "react"
 import { useFormContext } from "react-hook-form"
 import Image from "next/image"
 import { UploadSimple, X, DotsSixVertical } from "@phosphor-icons/react"
@@ -14,12 +14,23 @@ const MIN_IMAGES = 5
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 const ACCEPTED_TYPES = ["image/jpeg", "image/jpg", "image/png"]
 
-export default function ImageUploader() {
+interface ImageUploaderProps {
+  initialImages?: string[]
+}
+
+export default function ImageUploader({ initialImages }: ImageUploaderProps = {}) {
   const { setValue, watch, formState: { errors } } = useFormContext<RegisterFormData>()
   const watchedImages = watch("images")
   const images = useMemo(() => watchedImages || [], [watchedImages])
   const [previews, setPreviews] = useState<{ url: string; file?: File }[]>([])
   const [uploading, setUploading] = useState(false)
+
+  // 기존 이미지 URL로 preview 초기화 (수정 모드)
+  useEffect(() => {
+    if (initialImages && initialImages.length > 0 && previews.length === 0) {
+      setPreviews(initialImages.map(url => ({ url })))
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)

@@ -1,6 +1,6 @@
 import Link from "next/link"
 import LogoutButton from "@/components/LogoutButton"
-import { Home, LayoutDashboard, Building2 } from "lucide-react"
+import { Home, LayoutDashboard, Building2, MessageCircle } from "lucide-react"
 
 export default function AdminLayout({
   children,
@@ -32,6 +32,10 @@ export default function AdminLayout({
               <Link href="/admin/properties" className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-primary px-3 py-2 rounded-lg hover:bg-primary/5 transition-colors">
                 <Building2 className="h-4 w-4" strokeWidth={1.5} />
                 매물 관리
+              </Link>
+              <Link href="/admin/cs-chatbot" className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-primary px-3 py-2 rounded-lg hover:bg-primary/5 transition-colors">
+                <MessageCircle className="h-4 w-4" strokeWidth={1.5} />
+                CS 챗봇
               </Link>
             </nav>
 

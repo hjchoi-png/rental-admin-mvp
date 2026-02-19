@@ -38,15 +38,25 @@ export async function updateSession(request: NextRequest) {
     const isLoginPage = request.nextUrl.pathname === '/admin/login'
 
     if (isAdminRoute && !isLoginPage && !user) {
-      // 로그인 안 된 상태로 어드민 접근 시 로그인 페이지로 리다이렉트
       const loginUrl = new URL('/admin/login', request.url)
       return NextResponse.redirect(loginUrl)
     }
 
-    // 이미 로그인된 상태로 로그인 페이지 접근 시 대시보드로 리다이렉트
     if (isLoginPage && user) {
       const adminUrl = new URL('/admin', request.url)
       return NextResponse.redirect(adminUrl)
+    }
+
+    // /host 보호 경로 (dashboard, properties, notifications)
+    // /host/register는 비로그인 허용
+    const isHostProtectedRoute =
+      request.nextUrl.pathname.startsWith('/host/dashboard') ||
+      request.nextUrl.pathname.startsWith('/host/properties') ||
+      request.nextUrl.pathname.startsWith('/host/notifications')
+
+    if (isHostProtectedRoute && !user) {
+      const homeUrl = new URL('/', request.url)
+      return NextResponse.redirect(homeUrl)
     }
 
     return response

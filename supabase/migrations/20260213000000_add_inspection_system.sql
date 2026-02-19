@@ -2,11 +2,18 @@
 -- 자동 검수 시스템 마이그레이션
 -- 운영-1_매물검수.md 정책 기반
 -- ============================================================
+-- ⚠️ 실행 순서: Step 1 먼저 실행 → 커밋 → Step 2 실행
+-- (Supabase SQL Editor에서 각각 별도 실행)
 
--- 1. properties 테이블 상태값 확장: 'supplement' (검수보완) 추가
-ALTER TABLE properties DROP CONSTRAINT IF EXISTS properties_status_check;
-ALTER TABLE properties ADD CONSTRAINT properties_status_check
-  CHECK (status IN ('pending', 'approved', 'rejected', 'supplement'));
+-- ============================================================
+-- Step 1: ENUM 값 추가 (이것만 먼저 단독 실행)
+-- ============================================================
+ALTER TYPE property_status ADD VALUE IF NOT EXISTS 'supplement';
+
+
+-- ============================================================
+-- Step 2: 나머지 전체 (Step 1 실행 후 별도 실행)
+-- ============================================================
 
 -- 2. 검수 결과 저장용 컬럼 추가
 ALTER TABLE properties
@@ -111,7 +118,7 @@ ALTER TABLE admin_settings
 ALTER TABLE forbidden_words ENABLE ROW LEVEL SECURITY;
 
 -- 관리자만 조회/수정 가능
-CREATE POLICY "Admin can manage forbidden words"
+CREATE POLICY IF NOT EXISTS "Admin can manage forbidden words"
   ON forbidden_words
   FOR ALL
   USING (
@@ -123,7 +130,7 @@ CREATE POLICY "Admin can manage forbidden words"
   );
 
 -- 서버 액션용: 서비스 롤은 항상 접근 가능 (anon key로도 읽기 가능하게)
-CREATE POLICY "Service role can read forbidden words"
+CREATE POLICY IF NOT EXISTS "Service role can read forbidden words"
   ON forbidden_words
   FOR SELECT
   USING (true);
