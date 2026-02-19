@@ -262,6 +262,10 @@ function chunkByHeaders(content, filename, meta) {
 }
 
 function pushChunks(chunks, text, filename, meta, sectionTitle, maxChars, overlap) {
+  // [검토중] 접두어 감지 — 분할 시 모든 조각에 전파
+  const reviewPrefix = text.startsWith("[검토중] ") ? "[검토중] " : ""
+  const cleanText = reviewPrefix ? text.slice(reviewPrefix.length) : text
+
   if (text.length <= maxChars) {
     chunks.push({
       content: text,
@@ -276,10 +280,11 @@ function pushChunks(chunks, text, filename, meta, sectionTitle, maxChars, overla
   }
 
   let start = 0
-  while (start < text.length) {
-    const end = Math.min(start + maxChars, text.length)
+  while (start < cleanText.length) {
+    const end = Math.min(start + maxChars - reviewPrefix.length, cleanText.length)
+    const chunkContent = reviewPrefix + cleanText.slice(start, end).trim()
     chunks.push({
-      content: text.slice(start, end).trim(),
+      content: chunkContent,
       sourceFile: filename,
       category: meta.category,
       target: meta.target,
@@ -287,7 +292,7 @@ function pushChunks(chunks, text, filename, meta, sectionTitle, maxChars, overla
       priority: meta.priority,
       contentType: "policy_rule",
     })
-    if (end === text.length) break
+    if (end === cleanText.length) break
     const nextStart = end - overlap
     if (nextStart <= start) break
     start = nextStart
