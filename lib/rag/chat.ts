@@ -1,6 +1,6 @@
 "use server"
 
-import Anthropic from "@anthropic-ai/sdk"
+import OpenAI from "openai"
 import { createClient } from "@/utils/supabase/server"
 import { searchPolicies } from "./vector-search"
 import type { PolicyChunk } from "./types"
@@ -28,13 +28,13 @@ const SYSTEM_PROMPT = `당신은 직방 단기임대(STR) 서비스의 CS 전문
 - 개인정보를 묻거나 받지 않습니다
 - 타사 서비스 비교 질문은 "직방 단기임대 정책 기준으로" 답변하세요`
 
-let anthropicClient: Anthropic | null = null
+let openaiClient: OpenAI | null = null
 
-function getClient(): Anthropic {
-  if (!anthropicClient) {
-    anthropicClient = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+function getClient(): OpenAI {
+  if (!openaiClient) {
+    openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
   }
-  return anthropicClient
+  return openaiClient
 }
 
 interface ChatOptions {
@@ -52,7 +52,7 @@ interface ChatResult {
  * 1. 질문 → 카테고리 분류
  * 2. 질문 → 벡터 검색
  * 3. 대화 이력 조회
- * 4. 검색 결과 + 시스템 프롬프트 + 대화 이력 → Claude 호출
+ * 4. 검색 결과 + 시스템 프롬프트 + 대화 이력 → GPT-4o 호출
  * 5. 응답 + 출처 반환
  */
 export async function chat(
@@ -122,17 +122,18 @@ export async function chat(
   }
   messages.push({ role: "user", content: contextParts.join("\n") })
 
-  // 5. Claude 호출
+  // 5. GPT-4o 호출
   const client = getClient()
-  const response = await client.messages.create({
-    model: "claude-sonnet-4-5-20250929",
+  const response = await client.chat.completions.create({
+    model: "gpt-4o",
     max_tokens: 1024,
-    system: SYSTEM_PROMPT,
-    messages,
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      ...messages,
+    ],
   })
 
-  const assistantContent =
-    response.content[0].type === "text" ? response.content[0].text : ""
+  const assistantContent = response.choices[0]?.message?.content || ""
 
   return {
     content: assistantContent,
