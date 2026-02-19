@@ -65,6 +65,7 @@ function chunkMarkdownFAQ(content, filename, meta) {
 
   let currentQuestion = null
   let currentCategory = ""
+  let currentStatus = ""
   let currentAnswer = []
   let inAnswer = false
 
@@ -72,19 +73,26 @@ function chunkMarkdownFAQ(content, filename, meta) {
     if (currentQuestion && currentAnswer.length > 0) {
       const answer = currentAnswer.join("\n").trim()
       if (answer) {
+        // 미완료/확인 상태면 [검토중] 태그 추가
+        const isUnconfirmed = currentStatus === "미완료" || currentStatus === "확인"
+        const needsUpdate = currentQuestion.includes("추후 업데이트 필요")
+        const prefix = (isUnconfirmed || needsUpdate) ? "[검토중] " : ""
+        // 질문에서 (추후 업데이트 필요) 제거
+        const cleanQuestion = currentQuestion.replace(/\(추후 업데이트 필요\)\s*/g, "").trim()
         chunks.push({
-          content: `Q: ${currentQuestion}\nA: ${answer}`,
+          content: `${prefix}Q: ${cleanQuestion}\nA: ${answer}`,
           sourceFile: filename,
           category: meta.category,
           target: meta.target,
           sectionTitle: currentCategory || "FAQ",
-          priority: meta.priority,
+          priority: (isUnconfirmed || needsUpdate) ? Math.max(meta.priority, 1) : meta.priority,
           contentType: "qa_pair",
         })
       }
     }
     currentQuestion = null
     currentCategory = ""
+    currentStatus = ""
     currentAnswer = []
     inAnswer = false
   }
@@ -97,9 +105,17 @@ function chunkMarkdownFAQ(content, filename, meta) {
       continue
     }
 
-    const catMatch = line.match(/^\*분류:\s*\[(.+?)\]/)
+    // 분류와 상태 파싱: *분류: [카테고리] (상태)*
+    const catMatch = line.match(/^\*분류:\s*\[(.+?)\]\s*\((.+?)\)/)
     if (catMatch && currentQuestion) {
       currentCategory = catMatch[1].trim()
+      currentStatus = catMatch[2].trim()
+      continue
+    }
+    // 분류만 있고 상태 없는 경우 폴백
+    const catOnlyMatch = line.match(/^\*분류:\s*\[(.+?)\]/)
+    if (catOnlyMatch && !catMatch && currentQuestion) {
+      currentCategory = catOnlyMatch[1].trim()
       continue
     }
 
@@ -173,6 +189,31 @@ function chunkPipeFAQ(content, filename, meta) {
   return chunks
 }
 
+/** 스킵 대상 섹션 패턴 */
+const SKIP_SECTION_PATTERNS = [
+  /^참고\s*UI/,
+  /^History/i,
+  /^Reference\s*-\s*타사/,
+  /Reference\s*-\s*타사\s*플랫폼/,
+]
+
+/** 미확정 콘텐츠 감지 패턴 */
+const UNCONFIRMED_PATTERNS = [
+  "팀 내부 의견 필요",
+  "추후 검토",
+  "추후 업데이트",
+  "작성중",
+  "확인 필요",
+]
+
+function shouldSkipSection(sectionTitle) {
+  return SKIP_SECTION_PATTERNS.some((pat) => pat.test(sectionTitle))
+}
+
+function isUnconfirmedContent(text) {
+  return UNCONFIRMED_PATTERNS.some((pat) => text.includes(pat))
+}
+
 /** 헤더 기반 섹션 분할 */
 function chunkByHeaders(content, filename, meta) {
   const maxChars = 1500
@@ -186,18 +227,35 @@ function chunkByHeaders(content, filename, meta) {
   for (const line of lines) {
     const headerMatch = line.match(/^(#{1,3})\s+(.+)/)
     if (headerMatch) {
-      if (currentContent.trim()) {
-        pushChunks(chunks, currentContent.trim(), filename, meta, currentSection, maxChars, overlap)
+      if (currentContent.trim() && !shouldSkipSection(currentSection)) {
+        const text = currentContent.trim()
+        // Reference 하위 내용도 필터링 (숫자) Reference 패턴)
+        if (!/^\d+\)\s*Reference\s*-\s*타사/.test(currentSection)) {
+          const prefix = isUnconfirmedContent(text) ? "[검토중] " : ""
+          const priority = prefix ? Math.max(meta.priority, 1) : meta.priority
+          pushChunks(chunks, prefix + text, filename, { ...meta, priority }, currentSection, maxChars, overlap)
+        }
       }
       currentSection = headerMatch[2].trim()
       currentContent = ""
       continue
     }
+
+    // "참고 UI"로 시작하는 라인은 스킵
+    if (/^참고\s*UI/.test(line.trim())) {
+      continue
+    }
+
     currentContent += line + "\n"
   }
 
-  if (currentContent.trim()) {
-    pushChunks(chunks, currentContent.trim(), filename, meta, currentSection, maxChars, overlap)
+  if (currentContent.trim() && !shouldSkipSection(currentSection)) {
+    const text = currentContent.trim()
+    if (!/^\d+\)\s*Reference\s*-\s*타사/.test(currentSection)) {
+      const prefix = isUnconfirmedContent(text) ? "[검토중] " : ""
+      const priority = prefix ? Math.max(meta.priority, 1) : meta.priority
+      pushChunks(chunks, prefix + text, filename, { ...meta, priority }, currentSection, maxChars, overlap)
+    }
   }
 
   return chunks
@@ -279,6 +337,11 @@ async function main() {
   const allChunks = []
   for (const file of files) {
     const content = fs.readFileSync(path.join(POLICY_DIR, file), "utf-8")
+    // 빈 파일 스킵 (200바이트 미만)
+    if (content.trim().length < 200) {
+      console.log(`  ${file}: 스킵 (내용 부족, ${content.trim().length}자)`)
+      continue
+    }
     const chunks = chunkMarkdown(content, file)
     allChunks.push(...chunks)
     console.log(`  ${file}: ${chunks.length}개 청크`)
