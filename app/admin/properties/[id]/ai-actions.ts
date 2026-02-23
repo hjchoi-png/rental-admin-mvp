@@ -4,13 +4,18 @@ import { createClient } from "@/utils/supabase/server"
 import { revalidatePath } from "next/cache"
 import OpenAI from "openai"
 import { insertAuditLog } from "@/lib/audit-log"
+import { retryWithBackoff } from "@/lib/utils/retry"
 
 const getOpenAIClient = () => {
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) {
     return null
   }
-  return new OpenAI({ apiKey })
+  return new OpenAI({
+    apiKey,
+    maxRetries: 0, // retryWithBackoff로 직접 관리
+    timeout: 30000, // 30초 타임아웃
+  })
 }
 
 // ============================================================
@@ -215,12 +220,14 @@ export async function runAiInspection(propertyId: string) {
       },
     ]
 
-    // 4. OpenAI API 호출
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages,
-      max_tokens: 2000,
-      temperature: 0.2,
+    // 4. OpenAI API 호출 (with retry)
+    const response = await retryWithBackoff(async () => {
+      return await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages,
+        max_tokens: 2000,
+        temperature: 0.2,
+      })
     })
 
     const content = response.choices[0]?.message?.content
@@ -326,118 +333,147 @@ async function finalizeInspection(
   propertyId: string,
   aiResult: AiInspectionResult
 ) {
-  const supabase = await createClient()
+  try {
+    const supabase = await createClient()
 
-  // 현재 매물 상태 조회 (이미 반려됐으면 스킵)
-  const { data: property } = await supabase
-    .from("properties")
-    .select("status, inspection_result, inspection_rule_violations")
-    .eq("id", propertyId)
-    .single()
+    // 현재 매물 상태 조회 (이미 반려됐으면 스킵)
+    const { data: property, error: fetchError } = await supabase
+      .from("properties")
+      .select("status, inspection_result, inspection_rule_violations")
+      .eq("id", propertyId)
+      .single()
 
-  if (!property || property.status === "rejected") return
-
-  // admin_settings 조회
-  const { data: settings } = await supabase
-    .from("admin_settings")
-    .select("auto_approval_enabled, auto_approval_threshold")
-    .single()
-
-  const autoApprovalEnabled = settings?.auto_approval_enabled ?? false
-  const autoApprovalThreshold = settings?.auto_approval_threshold ?? 80
-
-  // AI 위반 분석
-  const hasCritical = aiResult.violations.some((v) => v.severity === "critical")
-  const majorCount = aiResult.violations.filter((v) => v.severity === "major").length
-  const minorCount = aiResult.violations.filter((v) => v.severity === "minor").length
-
-  let finalStatus: string = property.status
-  let adminComment: string | null = null
-
-  if (hasCritical || majorCount >= 2) {
-    // 자동 반려
-    finalStatus = "rejected"
-    const criticalViolation = aiResult.violations.find((v) => v.severity === "critical")
-    adminComment = `AI 자동 반려: ${criticalViolation?.description || aiResult.violations[0]?.description || "정책 위반 탐지"}`
-
-    await insertAuditLog({
-      action: "auto_rejected_ai",
-      admin_user_id: null,
-      target_id: propertyId,
-      target_type: "property",
-      details: {
-        reason: adminComment,
-        violations: aiResult.violations.map((v) => `[${v.severity}] ${v.type}: ${v.description}`),
-        score: aiResult.totalScore,
-      },
-    })
-  } else if (majorCount === 1 || minorCount >= 3) {
-    // 보완 요청
-    finalStatus = "supplement"
-    const mainViolation = aiResult.violations.find((v) => v.severity === "major") || aiResult.violations[0]
-    adminComment = `AI 검수 보완 요청: ${mainViolation?.description || "일부 항목 보완 필요"}`
-
-    await insertAuditLog({
-      action: "auto_supplement",
-      admin_user_id: null,
-      target_id: propertyId,
-      target_type: "property",
-      details: {
-        reason: adminComment,
-        violations: aiResult.violations.map((v) => `[${v.severity}] ${v.type}: ${v.description}`),
-        score: aiResult.totalScore,
-      },
-    })
-  } else if (aiResult.violations.length === 0 || (minorCount <= 2 && majorCount === 0)) {
-    // 위반 없음 또는 경미
-    if (autoApprovalEnabled && aiResult.totalScore >= autoApprovalThreshold) {
-      finalStatus = "approved"
-      adminComment = null
-
-      await insertAuditLog({
-        action: "auto_approved",
-        admin_user_id: null,
-        target_id: propertyId,
-        target_type: "property",
-        details: {
-          score: aiResult.totalScore,
-          threshold: autoApprovalThreshold,
-          minorViolations: minorCount,
-        },
-      })
-    } else {
-      // 수동 검토 대기 (상태 유지)
-      finalStatus = "pending"
+    if (fetchError) {
+      console.error("[finalizeInspection] 매물 조회 실패:", fetchError.message)
+      return
     }
-  }
 
-  // 기존 inspection_result에 AI 결과 병합
-  const existingResult = (property.inspection_result as Record<string, unknown>) || {}
-  const mergedResult = {
-    ...existingResult,
-    aiInspection: aiResult,
-    finalDecision: finalStatus,
-    decidedAt: new Date().toISOString(),
-    decidedBy: finalStatus === "pending" ? "pending_manual" : "system",
-    autoApproved: finalStatus === "approved" && autoApprovalEnabled,
-  }
+    if (!property || property.status === "rejected") return
 
-  const updateData: Record<string, unknown> = {
-    inspection_result: mergedResult,
-  }
+    // admin_settings 조회
+    const { data: settings, error: settingsError } = await supabase
+      .from("admin_settings")
+      .select("auto_approval_enabled, auto_approval_threshold")
+      .single()
 
-  // 상태가 실제로 변경될 때만 업데이트
-  if (finalStatus !== property.status) {
-    updateData.status = finalStatus
-    if (adminComment) {
-      updateData.admin_comment = adminComment
+    if (settingsError) {
+      console.error("[finalizeInspection] admin_settings 조회 실패:", settingsError.message)
     }
-  }
 
-  await supabase
-    .from("properties")
-    .update(updateData)
-    .eq("id", propertyId)
+    const autoApprovalEnabled = settings?.auto_approval_enabled ?? false
+    const autoApprovalThreshold = settings?.auto_approval_threshold ?? 80
+
+    // AI 위반 분석
+    const hasCritical = aiResult.violations.some((v) => v.severity === "critical")
+    const majorCount = aiResult.violations.filter((v) => v.severity === "major").length
+    const minorCount = aiResult.violations.filter((v) => v.severity === "minor").length
+
+    let finalStatus: string = property.status
+    let adminComment: string | null = null
+
+    if (hasCritical || majorCount >= 2) {
+      // 자동 반려
+      finalStatus = "rejected"
+      const criticalViolation = aiResult.violations.find((v) => v.severity === "critical")
+      adminComment = `AI 자동 반려: ${criticalViolation?.description || aiResult.violations[0]?.description || "정책 위반 탐지"}`
+
+      try {
+        await insertAuditLog({
+          action: "auto_rejected_ai",
+          admin_user_id: null,
+          target_id: propertyId,
+          target_type: "property",
+          details: {
+            reason: adminComment,
+            violations: aiResult.violations.map((v) => `[${v.severity}] ${v.type}: ${v.description}`),
+            score: aiResult.totalScore,
+          },
+        })
+      } catch (auditError) {
+        console.error("[finalizeInspection] 감사 로그 기록 실패 (auto_rejected_ai):", auditError)
+      }
+    } else if (majorCount === 1 || minorCount >= 3) {
+      // 보완 요청
+      finalStatus = "supplement"
+      const mainViolation = aiResult.violations.find((v) => v.severity === "major") || aiResult.violations[0]
+      adminComment = `AI 검수 보완 요청: ${mainViolation?.description || "일부 항목 보완 필요"}`
+
+      try {
+        await insertAuditLog({
+          action: "auto_supplement",
+          admin_user_id: null,
+          target_id: propertyId,
+          target_type: "property",
+          details: {
+            reason: adminComment,
+            violations: aiResult.violations.map((v) => `[${v.severity}] ${v.type}: ${v.description}`),
+            score: aiResult.totalScore,
+          },
+        })
+      } catch (auditError) {
+        console.error("[finalizeInspection] 감사 로그 기록 실패 (auto_supplement):", auditError)
+      }
+    } else if (aiResult.violations.length === 0 || (minorCount <= 2 && majorCount === 0)) {
+      // 위반 없음 또는 경미
+      if (autoApprovalEnabled && aiResult.totalScore >= autoApprovalThreshold) {
+        finalStatus = "approved"
+        adminComment = null
+
+        try {
+          await insertAuditLog({
+            action: "auto_approved",
+            admin_user_id: null,
+            target_id: propertyId,
+            target_type: "property",
+            details: {
+              score: aiResult.totalScore,
+              threshold: autoApprovalThreshold,
+              minorViolations: minorCount,
+            },
+          })
+        } catch (auditError) {
+          console.error("[finalizeInspection] 감사 로그 기록 실패 (auto_approved):", auditError)
+        }
+      } else {
+        // 수동 검토 대기 (상태 유지)
+        finalStatus = "pending"
+      }
+    }
+
+    // 기존 inspection_result에 AI 결과 병합
+    const existingResult = (property.inspection_result as Record<string, unknown>) || {}
+    const mergedResult = {
+      ...existingResult,
+      aiInspection: aiResult,
+      finalDecision: finalStatus,
+      decidedAt: new Date().toISOString(),
+      decidedBy: finalStatus === "pending" ? "pending_manual" : "system",
+      autoApproved: finalStatus === "approved" && autoApprovalEnabled,
+    }
+
+    const updateData: Record<string, unknown> = {
+      inspection_result: mergedResult,
+    }
+
+    // 상태가 실제로 변경될 때만 업데이트
+    if (finalStatus !== property.status) {
+      updateData.status = finalStatus
+      if (adminComment) {
+        updateData.admin_comment = adminComment
+      }
+    }
+
+    const { error: updateError } = await supabase
+      .from("properties")
+      .update(updateData)
+      .eq("id", propertyId)
+
+    if (updateError) {
+      console.error("[finalizeInspection] 최종 판정 저장 실패:", updateError.message)
+    }
+  } catch (err) {
+    console.error("[finalizeInspection] 예기치 않은 오류:", err)
+  }
 }
 
 /**
@@ -448,44 +484,66 @@ async function finalizeInspection(
  * - auto_approval OFF → pending 유지
  */
 async function finalizeWithoutAi(propertyId: string) {
-  const supabase = await createClient()
+  try {
+    const supabase = await createClient()
 
-  const { data: property } = await supabase
-    .from("properties")
-    .select("status, inspection_result")
-    .eq("id", propertyId)
-    .single()
-
-  if (!property || property.status === "rejected") return
-
-  const { data: settings } = await supabase
-    .from("admin_settings")
-    .select("auto_approval_enabled")
-    .single()
-
-  if (settings?.auto_approval_enabled) {
-    const existingResult = (property.inspection_result as Record<string, unknown>) || {}
-    await supabase
+    const { data: property, error: fetchError } = await supabase
       .from("properties")
-      .update({
-        status: "approved",
-        inspection_result: {
-          ...existingResult,
-          finalDecision: "approved",
-          decidedAt: new Date().toISOString(),
-          decidedBy: "system",
-          autoApproved: true,
-          note: "AI 검수 비활성화 상태에서 시스템 규칙 통과로 자동 승인",
-        },
-      })
+      .select("status, inspection_result")
       .eq("id", propertyId)
+      .single()
 
-    await insertAuditLog({
-      action: "auto_approved_no_ai",
-      admin_user_id: null,
-      target_id: propertyId,
-      target_type: "property",
-      details: { note: "AI 비활성 상태, 시스템 규칙 통과 자동 승인" },
-    })
+    if (fetchError) {
+      console.error("[finalizeWithoutAi] 매물 조회 실패:", fetchError.message)
+      return
+    }
+
+    if (!property || property.status === "rejected") return
+
+    const { data: settings, error: settingsError } = await supabase
+      .from("admin_settings")
+      .select("auto_approval_enabled")
+      .single()
+
+    if (settingsError) {
+      console.error("[finalizeWithoutAi] admin_settings 조회 실패:", settingsError.message)
+    }
+
+    if (settings?.auto_approval_enabled) {
+      const existingResult = (property.inspection_result as Record<string, unknown>) || {}
+      const { error: updateError } = await supabase
+        .from("properties")
+        .update({
+          status: "approved",
+          inspection_result: {
+            ...existingResult,
+            finalDecision: "approved",
+            decidedAt: new Date().toISOString(),
+            decidedBy: "system",
+            autoApproved: true,
+            note: "AI 검수 비활성화 상태에서 시스템 규칙 통과로 자동 승인",
+          },
+        })
+        .eq("id", propertyId)
+
+      if (updateError) {
+        console.error("[finalizeWithoutAi] 자동 승인 저장 실패:", updateError.message)
+        return
+      }
+
+      try {
+        await insertAuditLog({
+          action: "auto_approved_no_ai",
+          admin_user_id: null,
+          target_id: propertyId,
+          target_type: "property",
+          details: { note: "AI 비활성 상태, 시스템 규칙 통과 자동 승인" },
+        })
+      } catch (auditError) {
+        console.error("[finalizeWithoutAi] 감사 로그 기록 실패:", auditError)
+      }
+    }
+  } catch (err) {
+    console.error("[finalizeWithoutAi] 예기치 않은 오류:", err)
   }
 }

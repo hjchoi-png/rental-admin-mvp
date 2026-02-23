@@ -4,12 +4,16 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Loader2, Building2, Clock, CheckCircle2, XCircle, TrendingUp, MapPin, Home, AlertTriangle, Zap, Settings, ScrollText } from "lucide-react"
+import { Loader2, Building2, Clock, CheckCircle2, XCircle, TrendingUp, MapPin, Home, AlertTriangle, Zap, Settings, ScrollText, BarChart3, Users, Timer, Activity } from "lucide-react"
 import {
   fetchPropertyStats,
   fetchPropertiesByRegion,
   fetchPropertiesByType,
   fetchDailyRegistrationStats,
+  fetchRejectionReasons,
+  fetchAiQualityTrend,
+  fetchProcessingSpeedStats,
+  fetchHostActivityStats,
 } from "../properties/actions"
 
 interface Stats {
@@ -45,28 +49,84 @@ interface DailyStat {
   pending_count: number
 }
 
+interface RejectionReason {
+  reason: string
+  count: number
+}
+
+interface AiQualityTrendItem {
+  date: string
+  avg_score: number
+  property_count: number
+}
+
+interface ProcessingSpeed {
+  avg_minutes: number
+  min_minutes: number
+  max_minutes: number
+  sample_count: number
+}
+
+interface HostActivity {
+  total_hosts: number
+  active_hosts: number
+  avg_properties_per_host: number
+  supplement_rate: number
+}
+
 export default function DashboardPage() {
   const router = useRouter()
   const [stats, setStats] = useState<Stats>({ total: 0, pending: 0, approved: 0, rejected: 0, supplement: 0 })
   const [regionStats, setRegionStats] = useState<RegionStat[]>([])
   const [typeStats, setTypeStats] = useState<TypeStat[]>([])
   const [dailyStats, setDailyStats] = useState<DailyStat[]>([])
+  const [rejectionReasons, setRejectionReasons] = useState<RejectionReason[]>([])
+  const [aiQualityTrend, setAiQualityTrend] = useState<AiQualityTrendItem[]>([])
+  const [processingSpeed, setProcessingSpeed] = useState<ProcessingSpeed>({
+    avg_minutes: 0,
+    min_minutes: 0,
+    max_minutes: 0,
+    sample_count: 0,
+  })
+  const [hostActivity, setHostActivity] = useState<HostActivity>({
+    total_hosts: 0,
+    active_hosts: 0,
+    avg_properties_per_host: 0,
+    supplement_rate: 0,
+  })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const loadAllStats = async () => {
       try {
-        const [basicStats, regions, types, daily] = await Promise.all([
+        const [
+          basicStats,
+          regions,
+          types,
+          daily,
+          rejections,
+          aiQuality,
+          speed,
+          hosts,
+        ] = await Promise.all([
           fetchPropertyStats(),
           fetchPropertiesByRegion(),
           fetchPropertiesByType(),
           fetchDailyRegistrationStats(),
+          fetchRejectionReasons(),
+          fetchAiQualityTrend(),
+          fetchProcessingSpeedStats(),
+          fetchHostActivityStats(),
         ])
 
         setStats(basicStats)
         setRegionStats(regions.data || [])
         setTypeStats(types.data || [])
         setDailyStats(daily.data || [])
+        setRejectionReasons(rejections.data || [])
+        setAiQualityTrend(aiQuality.data || [])
+        setProcessingSpeed(speed.data || { avg_minutes: 0, min_minutes: 0, max_minutes: 0, sample_count: 0 })
+        setHostActivity(hosts.data || { total_hosts: 0, active_hosts: 0, avg_properties_per_host: 0, supplement_rate: 0 })
       } catch (error) {
         console.error("통계 조회 실패:", error)
       } finally {
@@ -269,6 +329,184 @@ export default function DashboardPage() {
           )}
         </div>
       )}
+
+      {/* 반려 사유 통계 */}
+      {rejectionReasons.length > 0 && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-primary" strokeWidth={1.5} />
+              <CardTitle>주요 반려 사유</CardTitle>
+            </div>
+            <CardDescription>최근 반려된 매물의 주요 사유 (상위 10개)</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {rejectionReasons.map((item, index) => (
+                <div key={index} className="flex items-center gap-3">
+                  <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <span className="text-xs font-semibold text-primary">{index + 1}</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{item.reason}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-primary rounded-full"
+                        style={{
+                          width: `${Math.min(100, (item.count / (rejectionReasons[0]?.count || 1)) * 100)}%`,
+                        }}
+                      />
+                    </div>
+                    <span className="text-sm font-semibold text-primary w-8 text-right">
+                      {item.count}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* AI 검수 품질 트렌드 */}
+      {aiQualityTrend.length > 0 && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Activity className="h-5 w-5 text-primary" strokeWidth={1.5} />
+              <CardTitle>AI 검수 품질 트렌드</CardTitle>
+            </div>
+            <CardDescription>최근 30일간 AI 검수 평균 점수 추이</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {aiQualityTrend.slice(0, 10).map((item) => (
+                <div
+                  key={item.date}
+                  className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex-1">
+                    <p className="font-medium">
+                      {new Date(item.date).toLocaleDateString("ko-KR", {
+                        month: "long",
+                        day: "numeric",
+                        weekday: "short",
+                      })}
+                    </p>
+                  </div>
+                  <div className="flex gap-6 items-center">
+                    <div className="text-center">
+                      <p className="text-xs text-muted-foreground">평균 점수</p>
+                      <p className="text-lg font-bold text-blue-600">
+                        {item.avg_score.toFixed(1)}점
+                      </p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs text-muted-foreground">검수 건수</p>
+                      <p className="text-sm font-semibold">{item.property_count}건</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 처리 속도 & 호스트 활동 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* 처리 속도 통계 */}
+        {processingSpeed.sample_count > 0 && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Timer className="h-5 w-5 text-primary" strokeWidth={1.5} />
+                <CardTitle>처리 속도 통계</CardTitle>
+              </div>
+              <CardDescription>매물 검수 처리 시간 (분)</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 rounded-lg bg-blue-50/50">
+                  <div>
+                    <p className="text-sm text-muted-foreground">평균</p>
+                    <p className="text-2xl font-bold text-blue-700">
+                      {processingSpeed.avg_minutes.toFixed(1)}분
+                    </p>
+                  </div>
+                  <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
+                    <Timer className="h-6 w-6 text-blue-600" strokeWidth={1.5} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 rounded-lg bg-green-50/50 text-center">
+                    <p className="text-xs text-muted-foreground">최소</p>
+                    <p className="text-lg font-bold text-green-700">
+                      {processingSpeed.min_minutes.toFixed(1)}분
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-amber-50/50 text-center">
+                    <p className="text-xs text-muted-foreground">최대</p>
+                    <p className="text-lg font-bold text-amber-700">
+                      {processingSpeed.max_minutes.toFixed(1)}분
+                    </p>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground text-center">
+                  총 {processingSpeed.sample_count}건 기준
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* 호스트 활동 통계 */}
+        {hostActivity.total_hosts > 0 && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-primary" strokeWidth={1.5} />
+                <CardTitle>호스트 활동 통계</CardTitle>
+              </div>
+              <CardDescription>호스트 및 매물 등록 현황</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 rounded-lg bg-primary/5 text-center">
+                    <p className="text-xs text-muted-foreground">전체 호스트</p>
+                    <p className="text-2xl font-bold text-primary">
+                      {hostActivity.total_hosts}
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-green-50/50 text-center">
+                    <p className="text-xs text-muted-foreground">활동 중</p>
+                    <p className="text-2xl font-bold text-green-700">
+                      {hostActivity.active_hosts}
+                    </p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 rounded-lg bg-blue-50/50 text-center">
+                    <p className="text-xs text-muted-foreground">평균 매물 수</p>
+                    <p className="text-lg font-bold text-blue-700">
+                      {hostActivity.avg_properties_per_host.toFixed(1)}개
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-orange-50/50 text-center">
+                    <p className="text-xs text-muted-foreground">보완 요청률</p>
+                    <p className="text-lg font-bold text-orange-700">
+                      {(hostActivity.supplement_rate * 100).toFixed(1)}%
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
 
       {/* 지역별 통계 */}
       <Card>

@@ -187,7 +187,9 @@ export default function ChatInterface({
       {/* 입력 영역 */}
       <div className="border-t p-4">
         <div className="flex gap-2 items-end">
+          <label htmlFor="chatbot-input" className="sr-only">질문 입력</label>
           <textarea
+            id="chatbot-input"
             ref={inputRef}
             value={input}
             onChange={handleInputChange}

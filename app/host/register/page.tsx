@@ -64,7 +64,7 @@ export default function PropertyRegisterPage() {
     try {
       const result = await createProperty(data as any)
 
-      if (result.error) {
+      if (!result.success) {
         toast({ title: "등록 실패", description: result.error, variant: "destructive" })
       } else {
         toast({ title: "매물이 등록되었습니다", description: "관리자 검토 후 승인됩니다." })

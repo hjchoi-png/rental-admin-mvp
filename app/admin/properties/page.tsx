@@ -49,6 +49,7 @@ import {
 } from "./actions"
 import type { PropertyListItem, PropertyStatus } from "@/types/property"
 import { STATUS_VARIANTS, STATUS_LABELS } from "@/types/property"
+import type { ActionResult } from "@/types/action-result"
 
 type StatusFilter = "all" | PropertyStatus
 
@@ -95,6 +96,15 @@ function PropertiesAdminPage() {
   const [bulkSupplementDialogOpen, setBulkSupplementDialogOpen] = useState(false)
   const [supplementComment, setSupplementComment] = useState("")
   const [bulkProcessing, setBulkProcessing] = useState(false)
+  const [bulkProgressOpen, setBulkProgressOpen] = useState(false)
+  const [bulkProgress, setBulkProgress] = useState({
+    total: 0,
+    processed: 0,
+    succeeded: 0,
+    failed: 0,
+    failedIds: [] as string[],
+  })
+  const [bulkOperation, setBulkOperation] = useState<"approve" | "reject" | "supplement" | null>(null)
   const [advancedFilterOpen, setAdvancedFilterOpen] = useState(false)
   const [priceRange, setPriceRange] = useState({ min: "", max: "" })
   const [aiScoreRange, setAiScoreRange] = useState({ min: "", max: "" })
@@ -206,21 +216,104 @@ function PropertiesAdminPage() {
     setSelectedPropertyIds(newSet)
   }
 
+  /**
+   * 배치 단위로 ID 배열을 나눔
+   */
+  const chunkArray = <T,>(array: T[], size: number): T[][] => {
+    const chunks: T[][] = []
+    for (let i = 0; i < array.length; i += size) {
+      chunks.push(array.slice(i, i + size))
+    }
+    return chunks
+  }
+
+  /**
+   * 배치 처리 with 진행률 표시
+   */
+  const processBatches = async <T,>(
+    items: string[],
+    batchSize: number,
+    processFn: (batch: string[]) => Promise<ActionResult<T>>,
+    onProgress?: (processed: number, succeeded: number, failed: number) => void
+  ): Promise<{ succeeded: number; failed: number; failedIds: string[] }> => {
+    const batches = chunkArray(items, batchSize)
+    let succeeded = 0
+    let failed = 0
+    const failedIds: string[] = []
+
+    for (let i = 0; i < batches.length; i++) {
+      const batch = batches[i]
+      try {
+        const result = await processFn(batch)
+        if (result.success) {
+          succeeded += batch.length
+        } else {
+          failed += batch.length
+          failedIds.push(...batch)
+        }
+      } catch {
+        failed += batch.length
+        failedIds.push(...batch)
+      }
+
+      if (onProgress) {
+        onProgress((i + 1) * batchSize, succeeded, failed)
+      }
+
+      // 다음 배치 전 짧은 딜레이 (서버 부하 완화)
+      if (i < batches.length - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 100))
+      }
+    }
+
+    return { succeeded, failed, failedIds }
+  }
+
   const handleBulkApprove = async () => {
     if (selectedPropertyIds.size === 0) return
+
+    const items = Array.from(selectedPropertyIds)
+    setBulkOperation("approve")
+    setBulkProgress({
+      total: items.length,
+      processed: 0,
+      succeeded: 0,
+      failed: 0,
+      failedIds: [],
+    })
+    setBulkProgressOpen(true)
     setBulkProcessing(true)
+
     try {
-      const result = await bulkApproveProperties(Array.from(selectedPropertyIds))
-      if (result.success) {
-        toast({
-          title: "일괄 승인 완료",
-          description: `${result.count}개의 매물이 승인되었습니다.`,
-        })
-        setSelectedPropertyIds(new Set())
+      const { succeeded, failed, failedIds } = await processBatches(
+        items,
+        10,
+        bulkApproveProperties,
+        (processed, succeeded, failed) => {
+          setBulkProgress((prev) => ({
+            ...prev,
+            processed: Math.min(processed, items.length),
+            succeeded,
+            failed,
+          }))
+        }
+      )
+
+      setBulkProgress((prev) => ({ ...prev, failedIds }))
+
+      if (succeeded > 0) {
         await loadProperties()
-      } else {
-        throw new Error(result.error || "일괄 승인 실패")
+        setSelectedPropertyIds(new Set())
       }
+
+      toast({
+        title: failed === 0 ? "일괄 승인 완료" : "일괄 승인 부분 완료",
+        description:
+          failed === 0
+            ? `${succeeded}개의 매물이 승인되었습니다.`
+            : `${succeeded}개 승인, ${failed}개 실패했습니다.`,
+        variant: failed === 0 ? "default" : "destructive",
+      })
     } catch (error) {
       toast({
         title: "일괄 승인 실패",
@@ -238,24 +331,53 @@ function PropertiesAdminPage() {
       toast({ title: "반려 사유를 입력해주세요", variant: "destructive" })
       return
     }
+
+    const items = Array.from(selectedPropertyIds)
+    const comment = rejectComment
+
+    setBulkRejectDialogOpen(false)
+    setBulkOperation("reject")
+    setBulkProgress({
+      total: items.length,
+      processed: 0,
+      succeeded: 0,
+      failed: 0,
+      failedIds: [],
+    })
+    setBulkProgressOpen(true)
     setBulkProcessing(true)
+
     try {
-      const result = await bulkRejectProperties(
-        Array.from(selectedPropertyIds),
-        rejectComment
+      const { succeeded, failed, failedIds } = await processBatches(
+        items,
+        10,
+        (batch) => bulkRejectProperties(batch, comment),
+        (processed, succeeded, failed) => {
+          setBulkProgress((prev) => ({
+            ...prev,
+            processed: Math.min(processed, items.length),
+            succeeded,
+            failed,
+          }))
+        }
       )
-      if (result.success) {
-        toast({
-          title: "일괄 반려 완료",
-          description: `${result.count}개의 매물이 반려되었습니다.`,
-        })
-        setBulkRejectDialogOpen(false)
-        setRejectComment("")
-        setSelectedPropertyIds(new Set())
+
+      setBulkProgress((prev) => ({ ...prev, failedIds }))
+
+      if (succeeded > 0) {
         await loadProperties()
-      } else {
-        throw new Error(result.error || "일괄 반려 실패")
+        setSelectedPropertyIds(new Set())
+        setRejectComment("")
       }
+
+      toast({
+        title: failed === 0 ? "일괄 반려 완료" : "일괄 반려 부분 완료",
+        description:
+          failed === 0
+            ? `${succeeded}개의 매물이 반려되었습니다.`
+            : `${succeeded}개 반려, ${failed}개 실패했습니다.`,
+        variant: failed === 0 ? "default" : "destructive",
+      })
     } catch (error) {
       toast({
         title: "일괄 반려 실패",
@@ -273,24 +395,53 @@ function PropertiesAdminPage() {
       toast({ title: "보완 요청 사유를 입력해주세요", variant: "destructive" })
       return
     }
+
+    const items = Array.from(selectedPropertyIds)
+    const comment = supplementComment
+
+    setBulkSupplementDialogOpen(false)
+    setBulkOperation("supplement")
+    setBulkProgress({
+      total: items.length,
+      processed: 0,
+      succeeded: 0,
+      failed: 0,
+      failedIds: [],
+    })
+    setBulkProgressOpen(true)
     setBulkProcessing(true)
+
     try {
-      const result = await bulkSupplementProperties(
-        Array.from(selectedPropertyIds),
-        supplementComment
+      const { succeeded, failed, failedIds } = await processBatches(
+        items,
+        10,
+        (batch) => bulkSupplementProperties(batch, comment),
+        (processed, succeeded, failed) => {
+          setBulkProgress((prev) => ({
+            ...prev,
+            processed: Math.min(processed, items.length),
+            succeeded,
+            failed,
+          }))
+        }
       )
-      if (result.success) {
-        toast({
-          title: "일괄 보완 요청 완료",
-          description: `${result.count}개의 매물에 보완을 요청했습니다.`,
-        })
-        setBulkSupplementDialogOpen(false)
-        setSupplementComment("")
-        setSelectedPropertyIds(new Set())
+
+      setBulkProgress((prev) => ({ ...prev, failedIds }))
+
+      if (succeeded > 0) {
         await loadProperties()
-      } else {
-        throw new Error(result.error || "일괄 보완 요청 실패")
+        setSelectedPropertyIds(new Set())
+        setSupplementComment("")
       }
+
+      toast({
+        title: failed === 0 ? "일괄 보완 요청 완료" : "일괄 보완 요청 부분 완료",
+        description:
+          failed === 0
+            ? `${succeeded}개의 매물에 보완을 요청했습니다.`
+            : `${succeeded}개 요청, ${failed}개 실패했습니다.`,
+        variant: failed === 0 ? "default" : "destructive",
+      })
     } catch (error) {
       toast({
         title: "일괄 보완 요청 실패",
@@ -516,7 +667,9 @@ function PropertiesAdminPage() {
         <div className="flex gap-2">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <label htmlFor="property-search" className="sr-only">매물 검색</label>
             <Input
+              id="property-search"
               placeholder="숙소명, 주소, 호스트명 검색..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -918,6 +1071,80 @@ function PropertiesAdminPage() {
               className="bg-orange-600 hover:bg-orange-700"
             >
               {bulkProcessing ? "처리 중..." : "일괄 보완 요청하기"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 일괄 처리 진행 다이얼로그 */}
+      <Dialog open={bulkProgressOpen} onOpenChange={(open) => !bulkProcessing && setBulkProgressOpen(open)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {bulkOperation === "approve" && "일괄 승인 진행 중"}
+              {bulkOperation === "reject" && "일괄 반려 진행 중"}
+              {bulkOperation === "supplement" && "일괄 보완 요청 진행 중"}
+            </DialogTitle>
+            <DialogDescription>
+              매물을 배치 단위로 처리하고 있습니다. 잠시만 기다려주세요.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {/* 진행률 바 */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-medium">진행 상황</span>
+                <span className="text-muted-foreground">
+                  {Math.min(bulkProgress.processed, bulkProgress.total)} / {bulkProgress.total}
+                </span>
+              </div>
+              <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-primary transition-all duration-300"
+                  style={{
+                    width: `${Math.min(100, (bulkProgress.processed / bulkProgress.total) * 100)}%`,
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* 통계 */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="p-3 rounded-lg bg-green-50/50 text-center">
+                <p className="text-xs text-muted-foreground">성공</p>
+                <p className="text-lg font-bold text-green-700">{bulkProgress.succeeded}</p>
+              </div>
+              <div className="p-3 rounded-lg bg-red-50/50 text-center">
+                <p className="text-xs text-muted-foreground">실패</p>
+                <p className="text-lg font-bold text-red-700">{bulkProgress.failed}</p>
+              </div>
+              <div className="p-3 rounded-lg bg-blue-50/50 text-center">
+                <p className="text-xs text-muted-foreground">대기</p>
+                <p className="text-lg font-bold text-blue-700">
+                  {bulkProgress.total - bulkProgress.processed}
+                </p>
+              </div>
+            </div>
+
+            {/* 실패 항목 표시 */}
+            {bulkProgress.failedIds.length > 0 && (
+              <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+                <p className="text-sm font-medium text-destructive mb-1">
+                  실패한 항목 ({bulkProgress.failedIds.length}개)
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  일부 매물 처리에 실패했습니다. 나머지는 정상적으로 처리됩니다.
+                </p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={() => setBulkProgressOpen(false)}
+              disabled={bulkProcessing}
+              variant={bulkProcessing ? "outline" : "default"}
+            >
+              {bulkProcessing ? "처리 중..." : "확인"}
             </Button>
           </DialogFooter>
         </DialogContent>
