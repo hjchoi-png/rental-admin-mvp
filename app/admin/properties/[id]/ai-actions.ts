@@ -158,11 +158,14 @@ export async function runAiInspection(propertyId: string) {
 
 ### 사진 검수 (critical/major)
 1. **photo_contact_info** (critical): 사진에 전화번호, 카톡ID, QR코드, URL, 워터마크 텍스트가 있는지 확인
-2. **duplicate_photos** (major): 동일하거나 거의 동일한 사진이 전체의 50% 이상인지 확인
+2. **duplicate_photos** (major): 완전 동일한 사진이 3장 이상인지 확인 (단, 같은 공간을 다른 각도에서 촬영한 경우는 제외)
 3. **no_interior_photos** (critical): 실내 사진이 단 1장도 없는지 확인
-4. **irrelevant_photos** (major): 매물과 무관한 사진(음식, 풍경, 셀카 등)이 50% 이상인지 확인
-5. **low_quality_photos** (minor): 사진이 어둡거나 흔들리거나 해상도가 극히 낮은지 확인
-6. **space_bias** (minor): 특정 공간(침실 등)만 반복되고 다른 공간 사진이 없는지 확인
+4. **irrelevant_photos** (major): 매물 공간과 무관한 사진(인물, 음식, 풍경 등)이 2장 이상인지 확인
+5. **low_quality_photos** (minor): 아래 기준으로 사진 품질 저하 확인
+   - 어두움: 실내 사진인데 역광/조명 부족으로 가구·공간 윤곽이 전혀 안 보임 (야경·무드 조명 등 의도적 연출 제외)
+   - 흔들림/초점: 모션블러·초점 불량으로 텍스트를 읽을 수 없거나 윤곽선이 뭉개짐
+   - 저해상도: 압축 노이즈·픽셀 깨짐이 육안으로 명확히 보이거나 800x800px 미만으로 추정
+6. **space_bias** (minor): 특정 공간(침실 등)만 반복으로 전체 공간 파악이 어려운지 확인
 
 ### 텍스트 검수 (AI 추가 감지)
 7. **text_policy_violation** (major): 시스템 규칙에서 잡지 못한 미묘한 정책 위반 표현
