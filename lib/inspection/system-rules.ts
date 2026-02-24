@@ -70,6 +70,7 @@ export interface PropertyCheckInput extends PropertyTextFields {
  * 매물 등록 직후 호출되어 금칙어, 주소 중복, 연락처 패턴, 관리대상 호스트를 체크한다.
  * AI 검수 전에 실행되며, 위반 발견 시 즉시 자동 반려할 수 있다.
  *
+ * Graceful Degradation: 개별 규칙 체크 실패 시 로그만 남기고 다음 규칙 계속 검사
  * Supabase 클라이언트를 한 번만 생성하여 모든 하위 함수에 전달한다.
  */
 export async function checkSystemRules(
@@ -77,63 +78,103 @@ export async function checkSystemRules(
 ): Promise<SystemRuleCheckResult> {
   const violations: SystemRuleViolation[] = []
 
-  // Supabase 클라이언트 1회 생성 → 전체 검수에서 재사용
-  const supabase = await createClient()
+  try {
+    // Supabase 클라이언트 1회 생성 → 전체 검수에서 재사용
+    const supabase = await createClient()
 
-  // admin_settings 조회
-  const { data: settings } = await supabase
-    .from("admin_settings")
-    .select("forbidden_words_enabled, duplicate_check_enabled, auto_reject_on_rules")
-    .single()
+    // admin_settings 조회 (실패 시 기본값 사용)
+    let settings: {
+      forbidden_words_enabled?: boolean
+      duplicate_check_enabled?: boolean
+      auto_reject_on_rules?: boolean
+    } = {}
 
-  // 1. 금칙어 체크
-  if (settings?.forbidden_words_enabled !== false) {
-    const wordViolations = await checkForbiddenWords(supabase, property)
-    violations.push(...wordViolations)
-  }
+    try {
+      const { data } = await supabase
+        .from("admin_settings")
+        .select("forbidden_words_enabled, duplicate_check_enabled, auto_reject_on_rules")
+        .single()
+      settings = data || {}
+    } catch (settingsError) {
+      console.error("[checkSystemRules] admin_settings 조회 실패:", settingsError)
+      // 기본값으로 계속 진행
+    }
 
-  // 2. 연락처 패턴 체크 (정규식 기반, DB 불필요)
-  const patternViolations = checkContactPatterns(property)
-  violations.push(...patternViolations)
+    // 1. 금칙어 체크 (실패해도 다음 규칙 계속)
+    if (settings?.forbidden_words_enabled !== false) {
+      try {
+        const wordViolations = await checkForbiddenWords(supabase, property)
+        violations.push(...wordViolations)
+      } catch (wordError) {
+        console.error("[checkSystemRules] 금칙어 체크 실패:", wordError)
+      }
+    }
 
-  // 3. 주소 중복 체크
-  if (settings?.duplicate_check_enabled !== false) {
-    const dupeViolation = await checkDuplicateAddress(
-      supabase,
-      property.address,
-      property.dong ?? null,
-      property.ho ?? null,
-      property.id
-    )
-    if (dupeViolation) violations.push(dupeViolation)
-  }
+    // 2. 연락처 패턴 체크 (정규식 기반, DB 불필요)
+    try {
+      const patternViolations = checkContactPatterns(property)
+      violations.push(...patternViolations)
+    } catch (patternError) {
+      console.error("[checkSystemRules] 연락처 패턴 체크 실패:", patternError)
+    }
 
-  // 4. 관리대상 호스트 체크
-  if (property.user_id) {
-    const hostViolation = await checkManagedHost(supabase, property.user_id)
-    if (hostViolation) violations.push(hostViolation)
-  }
+    // 3. 주소 중복 체크 (실패해도 다음 규칙 계속)
+    if (settings?.duplicate_check_enabled !== false) {
+      try {
+        const dupeViolation = await checkDuplicateAddress(
+          supabase,
+          property.address,
+          property.dong ?? null,
+          property.ho ?? null,
+          property.id
+        )
+        if (dupeViolation) violations.push(dupeViolation)
+      } catch (dupeError) {
+        console.error("[checkSystemRules] 주소 중복 체크 실패:", dupeError)
+      }
+    }
 
-  // 판정
-  const hasCritical = violations.some((v) => v.severity === "critical")
-  const hasMajor = violations.some((v) => v.severity === "major")
+    // 4. 관리대상 호스트 체크 (실패해도 판정 계속)
+    if (property.user_id) {
+      try {
+        const hostViolation = await checkManagedHost(supabase, property.user_id)
+        if (hostViolation) violations.push(hostViolation)
+      } catch (hostError) {
+        console.error("[checkSystemRules] 관리대상 호스트 체크 실패:", hostError)
+      }
+    }
 
-  let decision: "pass" | "reject" | "flag" = "pass"
-  let rejectReason: string | undefined
+    // 판정
+    const hasCritical = violations.some((v) => v.severity === "critical")
+    const hasMajor = violations.some((v) => v.severity === "major")
 
-  if (hasCritical || hasMajor) {
-    decision = "reject"
-    const firstViolation = violations.find(
-      (v) => v.severity === "critical" || v.severity === "major"
-    )
-    rejectReason = firstViolation?.message
-  }
+    let decision: "pass" | "reject" | "flag" = "pass"
+    let rejectReason: string | undefined
 
-  return {
-    passed: violations.length === 0,
-    violations,
-    decision,
-    rejectReason,
+    if (hasCritical || hasMajor) {
+      decision = "reject"
+      const firstViolation = violations.find(
+        (v) => v.severity === "critical" || v.severity === "major"
+      )
+      rejectReason = firstViolation?.message
+    }
+
+    return {
+      passed: violations.length === 0,
+      violations,
+      decision,
+      rejectReason,
+    }
+  } catch (error) {
+    // 전체 함수 레벨 에러 (Supabase 클라이언트 생성 실패 등)
+    console.error("[checkSystemRules] 시스템 규칙 검수 전체 실패:", error)
+
+    // Graceful degradation: 에러여도 pass 반환 (AI 검수로 넘김)
+    return {
+      passed: true,
+      violations: [],
+      decision: "pass",
+    }
   }
 }
 
@@ -153,14 +194,20 @@ async function checkForbiddenWords(
 ): Promise<SystemRuleViolation[]> {
   const violations: SystemRuleViolation[] = []
 
-  const { data: forbiddenWords, error } = await supabase
-    .from("forbidden_words")
-    .select("word, category, severity, is_regex")
-    .eq("severity", "reject") // reject 등급만 자동 반려 대상
+  try {
+    const { data: forbiddenWords, error } = await supabase
+      .from("forbidden_words")
+      .select("word, category, severity, is_regex")
+      .eq("severity", "reject") // reject 등급만 자동 반려 대상
 
-  if (error || !forbiddenWords || forbiddenWords.length === 0) {
-    return violations
-  }
+    if (error) {
+      console.error("[checkForbiddenWords] DB 조회 실패:", error)
+      return violations
+    }
+
+    if (!forbiddenWords || forbiddenWords.length === 0) {
+      return violations
+    }
 
   // 체크할 텍스트 필드 목록
   const fields: { name: string; value: string | null | undefined }[] = [
@@ -209,26 +256,30 @@ async function checkForbiddenWords(
     }
   }
 
-  // 카테고리별 violation 생성
-  const categoryMessages: Record<string, string> = {
-    accommodation_fraud: "숙박업 오인 표현이 포함되어 있습니다",
-    external_contact: "외부 연락 유도 표현이 포함되어 있습니다",
-    direct_transaction: "직거래 유도 표현이 포함되어 있습니다",
-    contact_pattern: "연락처 정보가 포함되어 있습니다",
-  }
+    // 카테고리별 violation 생성
+    const categoryMessages: Record<string, string> = {
+      accommodation_fraud: "숙박업 오인 표현이 포함되어 있습니다",
+      external_contact: "외부 연락 유도 표현이 포함되어 있습니다",
+      direct_transaction: "직거래 유도 표현이 포함되어 있습니다",
+      contact_pattern: "연락처 정보가 포함되어 있습니다",
+    }
 
-  for (const [category, matches] of Array.from(matchesByCategory.entries())) {
-    violations.push({
-      rule: `forbidden_words_${category}`,
-      category: category as SystemRuleViolation["category"],
-      severity: "major",
-      field: matches.fields.join(", "),
-      message: `${categoryMessages[category] || "금칙어 발견"}: "${matches.words.join('", "')}" (${matches.fields.join(", ")})`,
-      matchedWords: matches.words,
-    })
-  }
+    for (const [category, matches] of Array.from(matchesByCategory.entries())) {
+      violations.push({
+        rule: `forbidden_words_${category}`,
+        category: category as SystemRuleViolation["category"],
+        severity: "major",
+        field: matches.fields.join(", "),
+        message: `${categoryMessages[category] || "금칙어 발견"}: "${matches.words.join('", "')}" (${matches.fields.join(", ")})`,
+        matchedWords: matches.words,
+      })
+    }
 
-  return violations
+    return violations
+  } catch (error) {
+    console.error("[checkForbiddenWords] 처리 중 오류:", error)
+    return violations
+  }
 }
 
 /**
@@ -335,29 +386,39 @@ async function checkDuplicateAddress(
   ho: string | null,
   currentPropertyId?: string
 ): Promise<SystemRuleViolation | null> {
-  // dong과 ho가 모두 없으면 중복 체크 불가 → skip
-  if (!dong && !ho) return null
+  try {
+    // dong과 ho가 모두 없으면 중복 체크 불가 → skip
+    if (!dong && !ho) return null
 
-  let query = supabase
-    .from("properties")
-    .select("id, status, title")
-    .eq("address", address)
-    .in("status", ["pending", "approved", "supplement"])
+    let query = supabase
+      .from("properties")
+      .select("id, status, title")
+      .eq("address", address)
+      .in("status", ["pending", "approved", "supplement"])
 
-  if (dong) query = query.eq("dong", dong)
-  if (ho) query = query.eq("ho", ho)
-  if (currentPropertyId) query = query.neq("id", currentPropertyId)
+    if (dong) query = query.eq("dong", dong)
+    if (ho) query = query.eq("ho", ho)
+    if (currentPropertyId) query = query.neq("id", currentPropertyId)
 
-  const { data, error } = await query
+    const { data, error } = await query
 
-  if (error || !data || data.length === 0) return null
+    if (error) {
+      console.error("[checkDuplicateAddress] DB 조회 실패:", error)
+      return null
+    }
 
-  return {
-    rule: "duplicate_address",
-    category: "duplicate_address",
-    severity: "major",
-    message: `동일 주소(${dong || ""}동 ${ho || ""}호)에 이미 등록된 매물이 있습니다`,
-    matchedWords: [data[0]?.id],
+    if (!data || data.length === 0) return null
+
+    return {
+      rule: "duplicate_address",
+      category: "duplicate_address",
+      severity: "major",
+      message: `동일 주소(${dong || ""}동 ${ho || ""}호)에 이미 등록된 매물이 있습니다`,
+      matchedWords: [data[0]?.id],
+    }
+  } catch (error) {
+    console.error("[checkDuplicateAddress] 처리 중 오류:", error)
+    return null
   }
 }
 
@@ -371,23 +432,33 @@ async function checkManagedHost(
   supabase: SupabaseClient,
   userId: string
 ): Promise<SystemRuleViolation | null> {
-  // 반려된 매물 수 조회
-  const { data, error } = await supabase
-    .from("properties")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("status", "rejected")
+  try {
+    // 반려된 매물 수 조회
+    const { data, error } = await supabase
+      .from("properties")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("status", "rejected")
 
-  if (error || !data) return null
-
-  if (data.length >= 3) {
-    return {
-      rule: "managed_host",
-      category: "managed_host",
-      severity: "major",
-      message: `이 호스트는 반려 이력이 ${data.length}건으로 관리 대상입니다. 관리자 수동 검토가 필요합니다.`,
+    if (error) {
+      console.error("[checkManagedHost] DB 조회 실패:", error)
+      return null
     }
-  }
 
-  return null
+    if (!data) return null
+
+    if (data.length >= 3) {
+      return {
+        rule: "managed_host",
+        category: "managed_host",
+        severity: "major",
+        message: `이 호스트는 반려 이력이 ${data.length}건으로 관리 대상입니다. 관리자 수동 검토가 필요합니다.`,
+      }
+    }
+
+    return null
+  } catch (error) {
+    console.error("[checkManagedHost] 처리 중 오류:", error)
+    return null
+  }
 }

@@ -3,6 +3,7 @@
 import OpenAI from "openai"
 import { createClient } from "@/utils/supabase/server"
 import { searchPolicies } from "./vector-search"
+import { retryWithBackoff } from "@/lib/utils/retry"
 import type { PolicyChunk } from "./types"
 
 const SYSTEM_PROMPT = `당신은 직방 단기임대(STR) 서비스의 CS 전문 상담원입니다.
@@ -44,7 +45,11 @@ let openaiClient: OpenAI | null = null
 
 function getClient(): OpenAI {
   if (!openaiClient) {
-    openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+    openaiClient = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+      maxRetries: 0, // retryWithBackoff로 직접 관리
+      timeout: 30000, // 30초 타임아웃
+    })
   }
   return openaiClient
 }
@@ -78,8 +83,8 @@ export async function chat(
   // 2. 벡터 검색
   const sources = await searchPolicies(userMessage, {
     category,
-    topK: 5,
-    minSimilarity: 0.3,
+    topK: 15,
+    minSimilarity: 0.25,
   })
 
   // 3. 대화 이력 조회
@@ -134,15 +139,18 @@ export async function chat(
   }
   messages.push({ role: "user", content: contextParts.join("\n") })
 
-  // 5. GPT-4o 호출
+  // 5. GPT-4o 호출 (with retry)
   const client = getClient()
-  const response = await client.chat.completions.create({
-    model: "gpt-4o",
-    max_tokens: 1024,
-    messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      ...messages,
-    ],
+
+  const response = await retryWithBackoff(async () => {
+    return await client.chat.completions.create({
+      model: "gpt-4o",
+      max_tokens: 1024,
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        ...messages,
+      ],
+    })
   })
 
   const assistantContent = response.choices[0]?.message?.content || ""

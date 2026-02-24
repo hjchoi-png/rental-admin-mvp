@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import { Send, Loader2, Bot, User, FileText, ThumbsUp, ThumbsDown, Copy, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import ReactMarkdown from "react-markdown"
+import LoadingSpinner from "@/components/LoadingSpinner"
 import { getMessages, sendMessage, submitFeedback } from "./actions"
 
 interface Message {
@@ -146,7 +147,7 @@ export default function ChatInterface({
   if (isInitializing) {
     return (
       <div className="flex items-center justify-center h-full border rounded-lg bg-white">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <LoadingSpinner message="채팅 초기화 중..." />
       </div>
     )
   }
@@ -173,10 +174,7 @@ export default function ChatInterface({
               <Bot className="h-4 w-4 text-primary" strokeWidth={1.5} />
             </div>
             <div className="bg-muted/50 rounded-xl px-4 py-3">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                답변 생성 중...
-              </div>
+              <LoadingSpinner message="답변 생성 중..." />
             </div>
           </div>
         )}

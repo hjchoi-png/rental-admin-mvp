@@ -15,8 +15,8 @@ export async function searchPolicies(
   query: string,
   options?: SearchOptions
 ): Promise<PolicyChunk[]> {
-  const topK = options?.topK ?? 5
-  const minSimilarity = options?.minSimilarity ?? 0.3
+  const topK = options?.topK ?? 15
+  const minSimilarity = options?.minSimilarity ?? 0.25
   const maxPriority = options?.maxPriority ?? 2
 
   // 1. 질문 임베딩
@@ -25,7 +25,7 @@ export async function searchPolicies(
   // 2. Supabase RPC 호출
   const supabase = await createClient()
   const { data, error } = await supabase.rpc("match_policy_documents", {
-    query_embedding: JSON.stringify(queryEmbedding),
+    query_embedding: queryEmbedding,
     match_count: topK,
     filter_category: options?.category ?? null,
     filter_priority: maxPriority,

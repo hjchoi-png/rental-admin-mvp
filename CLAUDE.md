@@ -26,7 +26,7 @@
 | Framework | Next.js 14 (App Router), React 18, TypeScript |
 | Backend/DB | Supabase (PostgreSQL + Auth + Storage + RLS) |
 | AI (검수) | OpenAI GPT-4o Vision (매물 사진/텍스트 정책 위반 탐지) |
-| AI (챗봇) | Anthropic Claude Sonnet 4.5 (CS 챗봇 응답 생성) |
+| AI (챗봇) | OpenAI GPT-4o (CS 챗봇 응답 생성) |
 | Embedding | OpenAI text-embedding-3-small (정책 문서 벡터화) |
 | Vector DB | Supabase pgvector (벡터 유사도 검색) |
 | UI | shadcn/ui, Radix UI, TailwindCSS |
@@ -107,9 +107,9 @@ rental-admin-mvp/
 │       ├── embeddings.ts              ← OpenAI text-embedding-3-small
 │       ├── chunker.ts                 ← MD → 청크 분할 (FAQ Q+A / 헤더 기반)
 │       ├── vector-search.ts           ← pgvector 유사도 검색
-│       └── chat.ts                    ← Claude RAG 파이프라인 오케스트레이션
+│       └── chat.ts                    ← GPT-4o RAG 파이프라인 오케스트레이션
 ├── scripts/
-│   └── ingest-policies.ts             ← 정책 문서 벡터 인제스트 CLI
+│   └── ingest-policies.mjs            ← 정책 문서 벡터 인제스트 CLI (ESM)
 ├── components/
 │   ├── LoadingSpinner.tsx             ← 공통 로딩 컴포넌트
 │   ├── ErrorMessage.tsx               ← 공통 에러 메시지 컴포넌트
@@ -172,8 +172,7 @@ supplement → pending (호스트 재제출 시)
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
-OPENAI_API_KEY=
-ANTHROPIC_API_KEY=
+OPENAI_API_KEY=              # 임베딩 + 챗봇(GPT-4o) 통합
 ```
 
 ---
@@ -183,14 +182,12 @@ ANTHROPIC_API_KEY=
 ### 완료된 것
 - 자동 검수: DB 스키마 + 시스템 규칙 엔진 + AI 정책 위반 탐지 + Admin UI
 - 호스트 보완 워크플로우: 대시보드 → 상세 → 보완 피드백 → 수정/재제출 → 알림
-- CS 챗봇 RAG: Phase 1~4 전체 완성 (벡터 인프라 + 검색/응답 + UI + 매물 맥락 연동 + 답변 피드백)
+- CS 챗봇 RAG: Phase 1~4 전체 완성 + 품질 개선 (마크다운 렌더링, [검토중] 태깅, 불필요 섹션 필터링)
 - 감사 로그: 수동 + 자동 검수 전 이벤트 커버 (8개 액션 타입)
 - 일괄 처리: 승인/반려/보완 요청 3종 완성
 
-### 즉시 필요 (환경 설정 — 사용자 액션)
-- Supabase 마이그레이션 4개 실행
-- 정책 문서 인제스트 (`npx tsx scripts/ingest-policies.ts`)
-- ANTHROPIC_API_KEY 환경 변수 설정
+### 즉시 필요
+- `정책-2_가격정책.md` 서브 헤더 추가 → 재인제스트 (확정/미확정 분리 개선)
 - 실환경 테스트 (검수, 호스트 보완, CS 챗봇)
 
 ### 다음 목표

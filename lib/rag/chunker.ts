@@ -286,7 +286,7 @@ function pushChunks(
     return
   }
 
-  // 긴 텍스트 분할
+  // 긴 텍스트 분할 (with overlap)
   let start = 0
   while (start < text.length) {
     const end = Math.min(start + maxChars, text.length)
@@ -302,9 +302,15 @@ function pushChunks(
       contentType: "policy_rule" as ChunkContentType,
     })
 
-    if (end === text.length) break
+    // 마지막 청크면 종료
+    if (end >= text.length) break
+
+    // 다음 시작 위치 계산 (overlap 적용)
     const nextStart = end - overlap
-    if (nextStart <= start) break // 무한 루프 방지
+
+    // 무한 루프 방지: 진행이 없으면 종료
+    if (nextStart <= start) break
+
     start = nextStart
   }
 }

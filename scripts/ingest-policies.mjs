@@ -27,15 +27,17 @@ const BATCH_SIZE = 100
 // FILE_CATEGORY_MAP
 // ============================================================
 const FILE_CATEGORY_MAP = {
+  "00_프로젝트개요.md": { category: "overview", priority: 0, target: "common" },
+  "용어사전.md": { category: "glossary", priority: 0, target: "common" },
   "FAQ.md": { category: "faq", priority: 0, target: "common" },
   "FAQ_공통.md": { category: "faq", priority: 0, target: "common" },
   "FAQ_호스트.md": { category: "faq", priority: 0, target: "host" },
   "FAQ_게스트.md": { category: "faq", priority: 0, target: "guest" },
   "운영-1_매물검수.md": { category: "operation", priority: 0, target: "common" },
+  "운영-2_계정관리.md": { category: "operation", priority: 1, target: "common" },
   "정책-1_법적기준.md": { category: "policy", priority: 0, target: "common" },
   "정책-2_가격정책.md": { category: "policy", priority: 0, target: "common" },
-  "정책-3_기타정책.md": { category: "policy", priority: 0, target: "common" },
-  "운영-2_호스트게스트관리.md": { category: "operation", priority: 1, target: "common" },
+  "정책-3_운영기준.md": { category: "policy", priority: 0, target: "common" },
 }
 
 // ============================================================
@@ -214,7 +216,7 @@ function isUnconfirmedContent(text) {
   return UNCONFIRMED_PATTERNS.some((pat) => text.includes(pat))
 }
 
-/** 헤더 기반 섹션 분할 */
+/** 헤더 기반 섹션 분할 (계층 구조 명시 - 옵션 B) */
 function chunkByHeaders(content, filename, meta) {
   const maxChars = 1500
   const overlap = 200
@@ -223,21 +225,56 @@ function chunkByHeaders(content, filename, meta) {
 
   let currentSection = filename.replace(".md", "")
   let currentContent = ""
+  let currentHeaderLevel = 0
+
+  // 상위 헤더 추적 (레벨 1, 2, 3)
+  let level1Header = ""  // # 헤더
+  let level2Header = ""  // ## 헤더
+  let currentLevel = 0
 
   for (const line of lines) {
     const headerMatch = line.match(/^(#{1,3})\s+(.+)/)
     if (headerMatch) {
+      // 이전 섹션 저장
       if (currentContent.trim() && !shouldSkipSection(currentSection)) {
         const text = currentContent.trim()
         // Reference 하위 내용도 필터링 (숫자) Reference 패턴)
         if (!/^\d+\)\s*Reference\s*-\s*타사/.test(currentSection)) {
           const prefix = isUnconfirmedContent(text) ? "[검토중] " : ""
           const priority = prefix ? Math.max(meta.priority, 1) : meta.priority
-          pushChunks(chunks, prefix + text, filename, { ...meta, priority }, currentSection, maxChars, overlap)
+
+          // 계층 구조 추가: 레벨2 이상인 경우 상위 헤더 포함
+          let hierarchicalContent = text
+          if (currentLevel >= 2 && level1Header) {
+            const headerPrefix = `# ${level1Header}\n\n${currentLevel === 2 ? '## ' : '### '}${currentSection}\n\n`
+            hierarchicalContent = headerPrefix + text
+          } else if (currentLevel === 3 && level2Header) {
+            const headerPrefix = `# ${level1Header}\n\n## ${level2Header}\n\n### ${currentSection}\n\n`
+            hierarchicalContent = headerPrefix + text
+          }
+
+          pushChunks(chunks, prefix + hierarchicalContent, filename, { ...meta, priority }, currentSection, maxChars, overlap)
         }
       }
-      currentSection = headerMatch[2].trim()
+
+      // 헤더 레벨 업데이트
+      const level = headerMatch[1].length
+      const headerTitle = headerMatch[2].trim()
+
+      if (level === 1) {
+        level1Header = headerTitle
+        level2Header = ""
+        currentLevel = 1
+      } else if (level === 2) {
+        level2Header = headerTitle
+        currentLevel = 2
+      } else if (level === 3) {
+        currentLevel = 3
+      }
+
+      currentSection = headerTitle
       currentContent = ""
+      currentHeaderLevel = level
       continue
     }
 
@@ -249,12 +286,24 @@ function chunkByHeaders(content, filename, meta) {
     currentContent += line + "\n"
   }
 
+  // 마지막 섹션 저장
   if (currentContent.trim() && !shouldSkipSection(currentSection)) {
     const text = currentContent.trim()
     if (!/^\d+\)\s*Reference\s*-\s*타사/.test(currentSection)) {
       const prefix = isUnconfirmedContent(text) ? "[검토중] " : ""
       const priority = prefix ? Math.max(meta.priority, 1) : meta.priority
-      pushChunks(chunks, prefix + text, filename, { ...meta, priority }, currentSection, maxChars, overlap)
+
+      // 계층 구조 추가
+      let hierarchicalContent = text
+      if (currentLevel >= 2 && level1Header) {
+        const headerPrefix = `# ${level1Header}\n\n${currentLevel === 2 ? '## ' : '### '}${currentSection}\n\n`
+        hierarchicalContent = headerPrefix + text
+      } else if (currentLevel === 3 && level2Header) {
+        const headerPrefix = `# ${level1Header}\n\n## ${level2Header}\n\n### ${currentSection}\n\n`
+        hierarchicalContent = headerPrefix + text
+      }
+
+      pushChunks(chunks, prefix + hierarchicalContent, filename, { ...meta, priority }, currentSection, maxChars, overlap)
     }
   }
 

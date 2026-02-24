@@ -7,6 +7,7 @@ import { checkSystemRules } from "@/lib/inspection/system-rules"
 import { revalidatePath } from "next/cache"
 import { formDataToDbColumns } from "@/lib/property-mapper"
 import { insertAuditLog } from "@/lib/audit-log"
+import type { ActionResult } from "@/types/action-result"
 
 // v2 입력 데이터 검증 규칙 (6단계 폼)
 const propertySchema = z.object({
@@ -79,38 +80,47 @@ const propertySchema = z.object({
 
 export type CreatePropertyInput = z.infer<typeof propertySchema>
 
-export async function createProperty(formData: CreatePropertyInput) {
-  const supabase = await createClient()
+interface CreatePropertyResult {
+  propertyId: string
+  inspectionResult?: string
+  rejectReason?: string
+}
 
-  const { data: { user } } = await supabase.auth.getUser()
+export async function createProperty(
+  formData: CreatePropertyInput
+): Promise<ActionResult<CreatePropertyResult>> {
+  try {
+    const supabase = await createClient()
 
-  const parsed = propertySchema.safeParse(formData)
-  if (!parsed.success) {
-    return { error: '입력 데이터가 올바르지 않습니다.' }
-  }
+    const { data: { user } } = await supabase.auth.getUser()
 
-  const d = parsed.data
+    const parsed = propertySchema.safeParse(formData)
+    if (!parsed.success) {
+      return { success: false, error: '입력 데이터가 올바르지 않습니다.' }
+    }
 
-  const propertyData: Record<string, unknown> = {
-    ...formDataToDbColumns(d),
-    status: 'pending',
-    host_id: user ? user.id : null,
-    guest_name: user ? null : d.guestName || null,
-    guest_email: user ? null : d.guestEmail || null,
-    guest_phone: user ? null : d.guestPhone || null,
-  }
+    const d = parsed.data
 
-  const { data, error } = await supabase
-    .from('properties')
-    .insert(propertyData)
-    .select()
-    .single()
+    const propertyData: Record<string, unknown> = {
+      ...formDataToDbColumns(d),
+      status: 'pending',
+      host_id: user ? user.id : null,
+      guest_name: user ? null : d.guestName || null,
+      guest_email: user ? null : d.guestEmail || null,
+      guest_phone: user ? null : d.guestPhone || null,
+    }
 
-  if (error) {
-    console.error('Error creating property:', error)
-    console.error('Property data that failed:', JSON.stringify(propertyData, null, 2))
-    return { error: '매물 등록 실패: ' + error.message }
-  }
+    const { data, error } = await supabase
+      .from('properties')
+      .insert(propertyData)
+      .select()
+      .single()
+
+    if (error) {
+      console.error('[createProperty] Supabase insert error:', error)
+      console.error('[createProperty] Property data:', JSON.stringify(propertyData, null, 2))
+      return { success: false, error: '매물 등록에 실패했습니다.' }
+    }
 
   // ── 자동 검수 파이프라인 ──────────────────────────────
   // 1단계: 시스템 규칙 체크 (즉시, AI 불필요)
@@ -166,9 +176,11 @@ export async function createProperty(formData: CreatePropertyInput) {
 
       return {
         success: true,
-        propertyId: data.id,
-        inspectionResult: "rejected",
-        rejectReason: ruleResult.rejectReason,
+        data: {
+          propertyId: data.id,
+          inspectionResult: "rejected",
+          rejectReason: ruleResult.rejectReason,
+        },
       }
     }
 
@@ -190,7 +202,7 @@ export async function createProperty(formData: CreatePropertyInput) {
         .eq("id", data.id)
     }
   } catch (ruleError) {
-    console.error("시스템 규칙 체크 실패 (등록은 정상 완료):", ruleError)
+    console.error("[createProperty] 시스템 규칙 체크 실패:", ruleError)
     // 시스템 규칙 체크 실패 시에도 AI 검수는 계속 진행
   }
 
@@ -198,11 +210,21 @@ export async function createProperty(formData: CreatePropertyInput) {
   try {
     await runAiInspection(data.id)
   } catch (aiError) {
-    console.error('AI 자동 검수 실패 (등록은 정상 완료):', aiError)
+    console.error('[createProperty] AI 자동 검수 실패:', aiError)
   }
 
   revalidatePath("/admin/properties")
   revalidatePath("/admin")
 
-  return { success: true, propertyId: data.id }
+  return {
+    success: true,
+    data: { propertyId: data.id },
+  }
+  } catch (error) {
+    console.error('[createProperty] Unexpected error:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '매물 등록 중 오류가 발생했습니다.',
+    }
+  }
 }

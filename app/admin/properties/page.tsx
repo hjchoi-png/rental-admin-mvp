@@ -6,10 +6,12 @@ import {
   useReactTable,
   getCoreRowModel,
   getFilteredRowModel,
+  getSortedRowModel,
   createColumnHelper,
   flexRender,
+  type SortingState,
 } from "@tanstack/react-table"
-import { Check, X, Search, CheckSquare, XSquare, AlertCircle, Filter, SlidersHorizontal } from "lucide-react"
+import { Check, X, Search, CheckSquare, XSquare, AlertCircle, Filter, SlidersHorizontal, RotateCcw, CheckCircle, ChevronUp, ChevronDown } from "lucide-react"
 
 import {
   Table,
@@ -39,6 +41,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { useToast } from "@/components/ui/use-toast"
+import LoadingSpinner from "@/components/LoadingSpinner"
+import { calculateETA, formatSpeed, type ETAResult } from "@/lib/utils/batch-eta"
 import {
   fetchProperties,
   approveProperty,
@@ -50,8 +54,16 @@ import {
 import type { PropertyListItem, PropertyStatus } from "@/types/property"
 import { STATUS_VARIANTS, STATUS_LABELS } from "@/types/property"
 import type { ActionResult } from "@/types/action-result"
+import { cn } from "@/lib/utils"
 
 type StatusFilter = "all" | PropertyStatus
+type RowAnimationState =
+  | "idle"
+  | "approving"
+  | "approved"
+  | "rejecting"
+  | "rejected"
+  | "error"
 
 const formatDate = (dateString: string) => {
   try {
@@ -72,7 +84,11 @@ const columnHelper = createColumnHelper<PropertyListItem>()
 
 export default function PropertiesAdminPageWrapper() {
   return (
-    <Suspense fallback={<div className="container mx-auto py-8 px-4"><p className="text-muted-foreground">로딩 중...</p></div>}>
+    <Suspense fallback={
+      <div className="container mx-auto py-8 px-4">
+        <LoadingSpinner fullPage message="매물 목록 로딩 중..." />
+      </div>
+    }>
       <PropertiesAdminPage />
     </Suspense>
   )
@@ -105,6 +121,10 @@ function PropertiesAdminPage() {
     failedIds: [] as string[],
   })
   const [bulkOperation, setBulkOperation] = useState<"approve" | "reject" | "supplement" | null>(null)
+  const [bulkStartTime, setBulkStartTime] = useState<number>(0)
+  const [etaResult, setEtaResult] = useState<ETAResult | null>(null)
+  const [sorting, setSorting] = useState<SortingState>([{ id: "created_at", desc: true }])
+  const [rowAnimations, setRowAnimations] = useState<Record<string, RowAnimationState>>({})
   const [advancedFilterOpen, setAdvancedFilterOpen] = useState(false)
   const [priceRange, setPriceRange] = useState({ min: "", max: "" })
   const [aiScoreRange, setAiScoreRange] = useState({ min: "", max: "" })
@@ -126,6 +146,21 @@ function PropertiesAdminPage() {
     }
     loadTemplates()
   }, [rejectDialogOpen, bulkRejectDialogOpen, bulkSupplementDialogOpen])
+
+  // ETA 계산 (bulkProgress 변경 시마다)
+  useEffect(() => {
+    if (bulkProcessing && bulkStartTime > 0 && bulkProgress.processed > 0) {
+      const eta = calculateETA({
+        startTime: bulkStartTime,
+        processedCount: bulkProgress.processed,
+        totalCount: bulkProgress.total,
+        lastUpdateTime: Date.now(),
+      })
+      setEtaResult(eta)
+    } else {
+      setEtaResult(null)
+    }
+  }, [bulkProgress, bulkProcessing, bulkStartTime])
 
   const loadProperties = useCallback(async () => {
     try {
@@ -149,20 +184,51 @@ function PropertiesAdminPage() {
   }, [loadProperties])
 
   const handleApprove = async (propertyId: string) => {
+    // 애니메이션 시작
+    setRowAnimations((prev) => ({ ...prev, [propertyId]: "approving" }))
+
     try {
       const result = await approveProperty(propertyId)
       if (result.success) {
-        toast({ title: "승인 완료", description: "매물이 승인되었습니다." })
-        await loadProperties()
+        // 승인 완료 애니메이션
+        setRowAnimations((prev) => ({ ...prev, [propertyId]: "approved" }))
+
+        toast({
+          title: "승인 완료",
+          description: "매물이 승인되었습니다.",
+          duration: 2000
+        })
+
+        // 1.5초 후 데이터 리로드 (fade-out 애니메이션 시간)
+        setTimeout(async () => {
+          await loadProperties()
+          setRowAnimations((prev) => {
+            const next = { ...prev }
+            delete next[propertyId]
+            return next
+          })
+        }, 1500)
       } else {
         throw new Error(result.error || "승인 실패")
       }
     } catch (error) {
+      // 오류 애니메이션 (shake)
+      setRowAnimations((prev) => ({ ...prev, [propertyId]: "error" }))
+
       toast({
         title: "승인 실패",
         description: error instanceof Error ? error.message : "승인 중 오류가 발생했습니다.",
         variant: "destructive",
       })
+
+      // 2초 후 애니메이션 제거
+      setTimeout(() => {
+        setRowAnimations((prev) => {
+          const next = { ...prev }
+          delete next[propertyId]
+          return next
+        })
+      }, 2000)
     }
   }
 
@@ -178,23 +244,59 @@ function PropertiesAdminPage() {
       toast({ title: "반려 사유를 입력해주세요", variant: "destructive" })
       return
     }
+
+    const propertyId = selectedPropertyId
+
+    // 다이얼로그 먼저 닫기
+    setRejectDialogOpen(false)
+    setSelectedPropertyId(null)
+    setRejectComment("")
+
+    // 애니메이션 시작
+    setRowAnimations((prev) => ({ ...prev, [propertyId]: "rejecting" }))
+
     try {
-      const result = await rejectProperty(selectedPropertyId, rejectComment)
+      const result = await rejectProperty(propertyId, rejectComment)
       if (result.success) {
-        toast({ title: "반려 완료", description: "매물이 반려되었습니다." })
-        setRejectDialogOpen(false)
-        setSelectedPropertyId(null)
-        setRejectComment("")
-        await loadProperties()
+        // 반려 완료 애니메이션
+        setRowAnimations((prev) => ({ ...prev, [propertyId]: "rejected" }))
+
+        toast({
+          title: "반려 완료",
+          description: "매물이 반려되었습니다.",
+          duration: 2000
+        })
+
+        // 1.5초 후 데이터 리로드 (fade-out 애니메이션 시간)
+        setTimeout(async () => {
+          await loadProperties()
+          setRowAnimations((prev) => {
+            const next = { ...prev }
+            delete next[propertyId]
+            return next
+          })
+        }, 1500)
       } else {
         throw new Error(result.error || "반려 실패")
       }
     } catch (error) {
+      // 오류 애니메이션 (shake)
+      setRowAnimations((prev) => ({ ...prev, [propertyId]: "error" }))
+
       toast({
         title: "반려 실패",
         description: error instanceof Error ? error.message : "반려 중 오류가 발생했습니다.",
         variant: "destructive",
       })
+
+      // 2초 후 애니메이션 제거
+      setTimeout(() => {
+        setRowAnimations((prev) => {
+          const next = { ...prev }
+          delete next[propertyId]
+          return next
+        })
+      }, 2000)
     }
   }
 
@@ -273,7 +375,9 @@ function PropertiesAdminPage() {
     if (selectedPropertyIds.size === 0) return
 
     const items = Array.from(selectedPropertyIds)
+    const startTime = Date.now()
     setBulkOperation("approve")
+    setBulkStartTime(startTime)
     setBulkProgress({
       total: items.length,
       processed: 0,
@@ -334,9 +438,11 @@ function PropertiesAdminPage() {
 
     const items = Array.from(selectedPropertyIds)
     const comment = rejectComment
+    const startTime = Date.now()
 
     setBulkRejectDialogOpen(false)
     setBulkOperation("reject")
+    setBulkStartTime(startTime)
     setBulkProgress({
       total: items.length,
       processed: 0,
@@ -398,9 +504,11 @@ function PropertiesAdminPage() {
 
     const items = Array.from(selectedPropertyIds)
     const comment = supplementComment
+    const startTime = Date.now()
 
     setBulkSupplementDialogOpen(false)
     setBulkOperation("supplement")
+    setBulkStartTime(startTime)
     setBulkProgress({
       total: items.length,
       processed: 0,
@@ -446,6 +554,78 @@ function PropertiesAdminPage() {
       toast({
         title: "일괄 보완 요청 실패",
         description: error instanceof Error ? error.message : "일괄 보완 요청 중 오류가 발생했습니다.",
+        variant: "destructive",
+      })
+    } finally {
+      setBulkProcessing(false)
+    }
+  }
+
+  /**
+   * 실패한 항목만 재시도
+   */
+  const handleRetryFailed = async () => {
+    if (bulkProgress.failedIds.length === 0) return
+    if (!bulkOperation) return
+
+    // 실패한 항목만으로 재시도
+    const failedItems = bulkProgress.failedIds
+    const startTime = Date.now()
+
+    // 진행 상태 리셋 (실패 항목만)
+    setBulkStartTime(startTime)
+    setBulkProgress({
+      total: failedItems.length,
+      processed: 0,
+      succeeded: 0,
+      failed: 0,
+      failedIds: [],
+    })
+    setBulkProcessing(true)
+
+    try {
+      let processFn: (batch: string[]) => Promise<ActionResult<any>>
+
+      if (bulkOperation === "approve") {
+        processFn = bulkApproveProperties
+      } else if (bulkOperation === "reject") {
+        processFn = (batch) => bulkRejectProperties(batch, rejectComment)
+      } else {
+        processFn = (batch) => bulkSupplementProperties(batch, supplementComment)
+      }
+
+      const { succeeded, failed, failedIds } = await processBatches(
+        failedItems,
+        10,
+        processFn,
+        (processed, succeeded, failed) => {
+          setBulkProgress((prev) => ({
+            ...prev,
+            processed: Math.min(processed, failedItems.length),
+            succeeded,
+            failed,
+          }))
+        }
+      )
+
+      setBulkProgress((prev) => ({ ...prev, failedIds }))
+
+      if (succeeded > 0) {
+        await loadProperties()
+      }
+
+      toast({
+        title: failed === 0 ? "재시도 성공" : "재시도 부분 완료",
+        description:
+          failed === 0
+            ? `모든 항목(${succeeded}개)이 성공했습니다.`
+            : `${succeeded}개 성공, ${failed}개 실패했습니다.`,
+        variant: failed === 0 ? "default" : "destructive",
+      })
+    } catch (error) {
+      toast({
+        title: "재시도 실패",
+        description: error instanceof Error ? error.message : "재시도 중 오류가 발생했습니다.",
         variant: "destructive",
       })
     } finally {
@@ -503,6 +683,34 @@ function PropertiesAdminPage() {
     return data
   }, [properties, statusFilter, searchQuery, priceRange, aiScoreRange, propertyTypeFilter])
 
+  // Sortable Header Component
+  const SortableHeader = ({ column, children }: { column: any; children: React.ReactNode }) => {
+    const sortDirection = column.getIsSorted()
+
+    return (
+      <button
+        className="flex items-center gap-2 font-semibold text-sm uppercase tracking-wider hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary/20 rounded-sm px-2 py-1 -mx-2 -my-1"
+        onClick={column.getToggleSortingHandler()}
+      >
+        {children}
+        <div className="flex flex-col gap-0.5">
+          <ChevronUp
+            className={`h-3 w-3 transition-colors ${
+              sortDirection === "asc" ? "text-primary" : "text-muted-foreground/40"
+            }`}
+            strokeWidth={3}
+          />
+          <ChevronDown
+            className={`h-3 w-3 transition-colors -mt-1 ${
+              sortDirection === "desc" ? "text-primary" : "text-muted-foreground/40"
+            }`}
+            strokeWidth={3}
+          />
+        </div>
+      </button>
+    )
+  }
+
   const columns = useMemo(
     () => [
       columnHelper.display({
@@ -557,10 +765,11 @@ function PropertiesAdminPage() {
         },
       }),
       columnHelper.accessor("price_per_week", {
-        header: "주간 가격",
+        header: ({ column }) => <SortableHeader column={column}>주간 가격</SortableHeader>,
         cell: (info) => (
-          <div className="font-semibold">{info.getValue()?.toLocaleString()}원</div>
+          <div className="font-semibold font-mono tabular-nums">{info.getValue()?.toLocaleString()}원</div>
         ),
+        sortingFn: "basic",
       }),
       columnHelper.accessor("address", {
         header: "주소",
@@ -569,17 +778,65 @@ function PropertiesAdminPage() {
         ),
       }),
       columnHelper.accessor("ai_review_score", {
-        header: "AI 점수",
+        header: ({ column }) => <SortableHeader column={column}>AI 점수</SortableHeader>,
         cell: (info) => {
           const score = info.getValue()
-          if (score == null) return <span className="text-sm text-muted-foreground">-</span>
-          const color = score >= 70 ? "text-green-600" : score >= 40 ? "text-yellow-600" : "text-red-600"
-          return <span className={`text-sm font-bold ${color}`}>{score}점</span>
+
+          if (score == null) {
+            return (
+              <div className="flex items-center gap-2">
+                <div className="w-16 h-2 bg-slate-100 rounded-full" />
+                <span className="text-xs text-muted-foreground font-mono">-</span>
+              </div>
+            )
+          }
+
+          // Color gradient based on score
+          const getScoreColor = (score: number) => {
+            if (score >= 70) return {
+              bg: "bg-emerald-500",
+              text: "text-emerald-700",
+              ring: "ring-emerald-200"
+            }
+            if (score >= 40) return {
+              bg: "bg-amber-500",
+              text: "text-amber-700",
+              ring: "ring-amber-200"
+            }
+            return {
+              bg: "bg-red-500",
+              text: "text-red-700",
+              ring: "ring-red-200"
+            }
+          }
+
+          const colors = getScoreColor(score)
+
+          return (
+            <div className="flex items-center gap-3">
+              {/* Inline gauge */}
+              <div className="relative w-20 h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                <div
+                  className={`h-full transition-all duration-500 ease-out ${colors.bg}`}
+                  style={{ width: `${score}%` }}
+                />
+              </div>
+
+              {/* Score number with badge */}
+              <div className={`px-2.5 py-1 rounded-md ring-1 font-mono text-xs font-bold tabular-nums ${colors.text} ${colors.ring}`}>
+                {score}
+              </div>
+            </div>
+          )
         },
+        sortingFn: "basic",
+        sortDescFirst: true,
       }),
       columnHelper.accessor("created_at", {
-        header: "등록일",
-        cell: (info) => <span className="text-sm">{formatDate(info.getValue())}</span>,
+        header: ({ column }) => <SortableHeader column={column}>등록일</SortableHeader>,
+        cell: (info) => <span className="text-sm font-mono">{formatDate(info.getValue())}</span>,
+        sortingFn: "datetime",
+        sortDescFirst: true,
       }),
       columnHelper.accessor("status", {
         header: "상태",
@@ -639,16 +896,19 @@ function PropertiesAdminPage() {
   const table = useReactTable({
     data: filteredData,
     columns,
+    state: {
+      sorting,
+    },
+    onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    getSortedRowModel: getSortedRowModel(),
   })
 
   if (loading) {
     return (
       <div className="container mx-auto py-8 px-4">
-        <div className="flex items-center justify-center min-h-[400px]">
-          <p className="text-muted-foreground">로딩 중...</p>
-        </div>
+        <LoadingSpinner fullPage message="매물 데이터 로딩 중..." />
       </div>
     )
   }
@@ -750,8 +1010,10 @@ function PropertiesAdminPage() {
 
                   {/* 매물 유형 */}
                   <div className="space-y-2">
-                    <Label>매물 유형</Label>
+                    <Label htmlFor="property-type-filter">매물 유형</Label>
                     <select
+                      id="property-type-filter"
+                      aria-describedby="property-type-filter-desc"
                       className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
                       value={propertyTypeFilter}
                       onChange={(e) => setPropertyTypeFilter(e.target.value)}
@@ -763,6 +1025,9 @@ function PropertiesAdminPage() {
                         </option>
                       ))}
                     </select>
+                    <p id="property-type-filter-desc" className="sr-only">
+                      매물 유형으로 필터링합니다
+                    </p>
                   </div>
                 </div>
 
@@ -888,14 +1153,39 @@ function PropertiesAdminPage() {
               ) : (
                 table.getRowModel().rows.map((row) => {
                   const property = row.original
+                  const animationState = rowAnimations[property.id] || "idle"
+
                   return (
                     <TableRow
                       key={row.id}
                       onClick={() => router.push(`/admin/properties/${property.id}`)}
-                      className="cursor-pointer hover:bg-muted/50"
+                      className={cn(
+                        "cursor-pointer transition-all duration-300 ease-out",
+                        // Hover state
+                        animationState === "idle" && "hover:bg-muted/50",
+                        // Approving state - pulse green
+                        animationState === "approving" && "bg-emerald-50 animate-pulse-subtle",
+                        // Approved state - fade out with green glow
+                        animationState === "approved" &&
+                          "bg-emerald-100 border-l-4 border-emerald-500 animate-fade-out-success",
+                        // Rejecting state - pulse red
+                        animationState === "rejecting" && "bg-red-50 animate-pulse-subtle",
+                        // Rejected state - fade out with red glow
+                        animationState === "rejected" &&
+                          "bg-red-100 border-l-4 border-red-500 animate-fade-out-error",
+                        // Error state - shake
+                        animationState === "error" && "animate-shake bg-red-50"
+                      )}
                     >
                       {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id}>
+                        <TableCell
+                          key={cell.id}
+                          className={cn(
+                            "transition-opacity duration-300",
+                            (animationState === "approved" || animationState === "rejected") &&
+                              "opacity-50"
+                          )}
+                        >
                           {flexRender(cell.column.columnDef.cell, cell.getContext())}
                         </TableCell>
                       ))}
@@ -918,8 +1208,10 @@ function PropertiesAdminPage() {
           <div className="space-y-4 py-4">
             {rejectionTemplates.length > 0 && (
               <div className="space-y-2">
-                <Label>템플릿 선택</Label>
+                <Label htmlFor="single-reject-template">템플릿 선택</Label>
                 <select
+                  id="single-reject-template"
+                  aria-describedby="single-reject-template-desc"
                   className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
                   onChange={(e) => {
                     const template = rejectionTemplates.find((t) => t.id === e.target.value)
@@ -936,6 +1228,9 @@ function PropertiesAdminPage() {
                     </option>
                   ))}
                 </select>
+                <p id="single-reject-template-desc" className="sr-only">
+                  사전 정의된 반려 사유 템플릿을 선택하거나 직접 입력하세요
+                </p>
               </div>
             )}
             <div className="space-y-2">
@@ -979,8 +1274,10 @@ function PropertiesAdminPage() {
           <div className="space-y-4 py-4">
             {rejectionTemplates.length > 0 && (
               <div className="space-y-2">
-                <Label>템플릿 선택</Label>
+                <Label htmlFor="bulk-reject-template">템플릿 선택</Label>
                 <select
+                  id="bulk-reject-template"
+                  aria-describedby="bulk-reject-template-desc"
                   className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
                   onChange={(e) => {
                     const template = rejectionTemplates.find((t) => t.id === e.target.value)
@@ -997,6 +1294,9 @@ function PropertiesAdminPage() {
                     </option>
                   ))}
                 </select>
+                <p id="bulk-reject-template-desc" className="sr-only">
+                  사전 정의된 반려 사유 템플릿을 선택하거나 직접 입력하세요
+                </p>
               </div>
             )}
             <div className="space-y-2">
@@ -1089,51 +1389,144 @@ function PropertiesAdminPage() {
               매물을 배치 단위로 처리하고 있습니다. 잠시만 기다려주세요.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            {/* 진행률 바 */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="font-medium">진행 상황</span>
-                <span className="text-muted-foreground">
-                  {Math.min(bulkProgress.processed, bulkProgress.total)} / {bulkProgress.total}
-                </span>
+          <div className="space-y-6 py-4">
+            {/* 진행률 헤더 with ETA */}
+            <div className="flex items-baseline justify-between">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">진행 상황</p>
+                <div className="flex items-baseline gap-3">
+                  <span className="text-3xl font-bold font-mono tabular-nums">
+                    {bulkProgress.processed}
+                  </span>
+                  <span className="text-lg text-muted-foreground">/ {bulkProgress.total}</span>
+                </div>
               </div>
-              <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-primary transition-all duration-300"
-                  style={{
-                    width: `${Math.min(100, (bulkProgress.processed / bulkProgress.total) * 100)}%`,
-                  }}
-                />
-              </div>
+
+              {/* ETA Display */}
+              {bulkProcessing && etaResult && bulkProgress.processed > 0 && (
+                <div className="text-right">
+                  <p className="text-xs text-muted-foreground">남은 시간</p>
+                  <p className="text-2xl font-bold font-mono text-blue-600">
+                    {etaResult.etaText}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {formatSpeed(etaResult.speed)}
+                  </p>
+                </div>
+              )}
             </div>
 
-            {/* 통계 */}
+            {/* Enhanced Progress Bar with Segments */}
+            <div className="relative">
+              <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden relative">
+                {/* Success segment */}
+                <div
+                  className="absolute h-full bg-emerald-500 transition-all duration-300 ease-out"
+                  style={{
+                    width: `${(bulkProgress.succeeded / bulkProgress.total) * 100}%`,
+                  }}
+                />
+                {/* Failed segment */}
+                <div
+                  className="absolute h-full bg-red-500 transition-all duration-300 ease-out"
+                  style={{
+                    left: `${(bulkProgress.succeeded / bulkProgress.total) * 100}%`,
+                    width: `${(bulkProgress.failed / bulkProgress.total) * 100}%`,
+                  }}
+                />
+                {/* Processing indicator (animated) */}
+                {bulkProcessing && (
+                  <div
+                    className="absolute h-full w-1 bg-blue-600 animate-pulse"
+                    style={{
+                      left: `${(bulkProgress.processed / bulkProgress.total) * 100}%`,
+                    }}
+                  />
+                )}
+              </div>
+              <p className="text-xs text-center text-muted-foreground mt-2 font-mono">
+                {Math.round((bulkProgress.processed / bulkProgress.total) * 100)}%
+              </p>
+            </div>
+
+            {/* Status Cards with Icons */}
             <div className="grid grid-cols-3 gap-3">
-              <div className="p-3 rounded-lg bg-green-50/50 text-center">
-                <p className="text-xs text-muted-foreground">성공</p>
-                <p className="text-lg font-bold text-green-700">{bulkProgress.succeeded}</p>
+              <div className="relative p-4 rounded-xl bg-gradient-to-br from-emerald-50 to-emerald-100/50 border border-emerald-200">
+                <div className="flex items-center gap-2 mb-1">
+                  {bulkProcessing && bulkProgress.succeeded > 0 && (
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  )}
+                  <p className="text-xs font-medium text-emerald-700 uppercase tracking-wider">성공</p>
+                </div>
+                <p className="text-3xl font-bold font-mono text-emerald-700 tabular-nums">
+                  {bulkProgress.succeeded}
+                </p>
               </div>
-              <div className="p-3 rounded-lg bg-red-50/50 text-center">
-                <p className="text-xs text-muted-foreground">실패</p>
-                <p className="text-lg font-bold text-red-700">{bulkProgress.failed}</p>
+
+              <div className="relative p-4 rounded-xl bg-gradient-to-br from-red-50 to-red-100/50 border border-red-200">
+                <div className="flex items-center gap-2 mb-1">
+                  {bulkProgress.failed > 0 && (
+                    <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                  )}
+                  <p className="text-xs font-medium text-red-700 uppercase tracking-wider">실패</p>
+                </div>
+                <p className="text-3xl font-bold font-mono text-red-700 tabular-nums">
+                  {bulkProgress.failed}
+                </p>
               </div>
-              <div className="p-3 rounded-lg bg-blue-50/50 text-center">
-                <p className="text-xs text-muted-foreground">대기</p>
-                <p className="text-lg font-bold text-blue-700">
+
+              <div className="relative p-4 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100/50 border border-slate-200">
+                <div className="flex items-center gap-2 mb-1">
+                  {bulkProcessing && (
+                    <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                  )}
+                  <p className="text-xs font-medium text-slate-700 uppercase tracking-wider">대기</p>
+                </div>
+                <p className="text-3xl font-bold font-mono text-slate-700 tabular-nums">
                   {bulkProgress.total - bulkProgress.processed}
                 </p>
               </div>
             </div>
 
-            {/* 실패 항목 표시 */}
+            {/* Failed Items with Retry */}
             {bulkProgress.failedIds.length > 0 && (
-              <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
-                <p className="text-sm font-medium text-destructive mb-1">
-                  실패한 항목 ({bulkProgress.failedIds.length}개)
+              <div className="rounded-xl border-2 border-red-200 bg-red-50/50 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-5 w-5 text-red-600" strokeWidth={2} />
+                    <p className="font-semibold text-red-900">
+                      실패한 항목 ({bulkProgress.failedIds.length}개)
+                    </p>
+                  </div>
+                  {!bulkProcessing && (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={handleRetryFailed}
+                      className="bg-red-600 hover:bg-red-700"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5 mr-1.5" strokeWidth={2} />
+                      재시도
+                    </Button>
+                  )}
+                </div>
+                <p className="text-sm text-red-700">
+                  일부 매물 처리에 실패했습니다. 재시도 버튼을 눌러 실패한 항목만 다시 처리할 수 있습니다.
                 </p>
-                <p className="text-xs text-muted-foreground">
-                  일부 매물 처리에 실패했습니다. 나머지는 정상적으로 처리됩니다.
+              </div>
+            )}
+
+            {/* Processing Complete Message */}
+            {!bulkProcessing && bulkProgress.processed === bulkProgress.total && (
+              <div className="rounded-xl border-2 border-emerald-200 bg-emerald-50/50 p-4 space-y-2">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-5 w-5 text-emerald-600" strokeWidth={2} />
+                  <p className="font-semibold text-emerald-900">처리 완료</p>
+                </div>
+                <p className="text-sm text-emerald-700">
+                  {bulkProgress.failed === 0
+                    ? `모든 매물(${bulkProgress.total}개)이 성공적으로 처리되었습니다.`
+                    : `${bulkProgress.succeeded}개 성공, ${bulkProgress.failed}개 실패했습니다.`}
                 </p>
               </div>
             )}
