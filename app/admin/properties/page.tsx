@@ -842,7 +842,7 @@ function PropertiesAdminPage() {
         header: "상태",
         cell: (info) => {
           const status = info.getValue()
-          return <Badge variant={STATUS_VARIANTS[status] || "secondary"} className={status === "supplement" ? "border-orange-400 text-orange-600" : ""}>{STATUS_LABELS[status] || status}</Badge>
+          return <Badge variant={STATUS_VARIANTS[status] || "secondary"} className={`whitespace-nowrap ${status === "supplement" ? "border-orange-400 text-orange-600" : ""}`}>{STATUS_LABELS[status] || status}</Badge>
         },
       }),
       columnHelper.display({
