@@ -1100,8 +1100,8 @@ function PropertiesAdminPage() {
           </div>
         )}
 
-        {/* 필터 탭 */}
-        <div className="flex gap-2 border-b">
+        {/* Brutalist 필터 탭 */}
+        <div className="flex gap-1 border-b-2 border-border">
           {([
             { key: "all", label: "전체" },
             { key: "pending", label: "검토 대기" },
@@ -1112,10 +1112,10 @@ function PropertiesAdminPage() {
             <button
               key={key}
               onClick={() => setStatusFilter(key)}
-              className={`px-4 py-2 text-sm font-medium transition-colors ${
+              className={`px-5 py-3 text-xs font-bold uppercase tracking-wider transition-all ${
                 statusFilter === key
-                  ? "border-b-2 border-primary text-primary"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "bg-foreground text-background"
+                  : "text-foreground/60 hover:text-foreground hover:bg-foreground/5"
               }`}
             >
               {label} (
@@ -1127,8 +1127,8 @@ function PropertiesAdminPage() {
           ))}
         </div>
 
-        {/* 테이블 */}
-        <div className="border rounded-lg">
+        {/* Brutalist 테이블 */}
+        <div className="border-2 border-border">
           <Table>
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (

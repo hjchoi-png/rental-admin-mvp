@@ -224,108 +224,121 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* 기본 통계 카드 */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      {/* Brutalist 통계 카드 - 숫자 강조, 테두리 제거 */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-6">
         {statCards.map((card) => {
           const Icon = card.icon
           return (
-            <Card
+            <div
               key={card.title}
-              className="border-0 shadow-md hover:shadow-lg transition-all"
+              className="group relative bg-card border-2 border-border hover:border-foreground/20 transition-all duration-200 p-6 hover:translate-x-[2px] hover:translate-y-[-2px]"
+              style={{
+                boxShadow: 'none',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.boxShadow = '-4px 4px 0 0 hsl(var(--foreground) / 0.08)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.boxShadow = 'none'
+              }}
             >
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground mb-1">
-                      {card.title}
-                    </p>
-                    <p className={`text-4xl font-bold ${card.valueColor}`}>
-                      {card.value}
-                    </p>
-                  </div>
-                  <div className={`p-3 rounded-xl ${card.bgColor}`}>
-                    <Icon className={`h-6 w-6 ${card.iconColor}`} strokeWidth={1.5} />
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    {card.title}
+                  </p>
+                  <div className={`p-1.5 ${card.bgColor}`}>
+                    <Icon className={`h-4 w-4 ${card.iconColor}`} strokeWidth={2.5} />
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+                <p className={`stat-number-sm ${card.valueColor}`}>
+                  {card.value}
+                </p>
+              </div>
+            </div>
           )
         })}
       </div>
 
-      {/* 자동 검수 현황 */}
-      <Card className="border-blue-200 bg-blue-50/50">
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-blue-100 rounded-xl">
-                <Zap className="h-6 w-6 text-blue-600" strokeWidth={1.5} />
-              </div>
-              <div>
-                <h3 className="font-semibold text-blue-900">자동 검수 현황</h3>
-                <p className="text-sm text-blue-700">
-                  승인률 {autoApprovalRate}% · 보완 {stats.supplement}건 · 반려 {stats.rejected}건
-                </p>
-              </div>
+      {/* Brutalist 자동 검수 현황 */}
+      <div className="border-2 border-primary/30 bg-primary/5 p-8">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-6">
+            <div className="w-14 h-14 bg-primary flex items-center justify-center">
+              <Zap className="h-7 w-7 text-primary-foreground" strokeWidth={2.5} />
             </div>
-            <div className="text-right">
-              <p className="text-3xl font-bold text-blue-700">{autoApprovalRate}%</p>
-              <p className="text-xs text-blue-500">승인률</p>
+            <div>
+              <h3 className="text-xl font-bold tracking-tight mb-2">자동 검수 현황</h3>
+              <p className="text-sm font-medium text-foreground/70">
+                승인률 <span className="font-bold text-primary">{autoApprovalRate}%</span> ·
+                보완 <span className="font-bold">{stats.supplement}건</span> ·
+                반려 <span className="font-bold">{stats.rejected}건</span>
+              </p>
             </div>
           </div>
-        </CardContent>
-      </Card>
+          <div className="text-right">
+            <p className="stat-number text-primary">{autoApprovalRate}%</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mt-1">승인률</p>
+          </div>
+        </div>
+      </div>
 
-      {/* 빠른 액션 */}
+      {/* Brutalist 빠른 액션 알림 */}
       {(stats.pending > 0 || stats.supplement > 0) && (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {stats.pending > 0 && (
-            <Card className="border-amber-200 bg-amber-50/50">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-amber-100 rounded-xl">
-                      <Clock className="h-6 w-6 text-amber-600" strokeWidth={1.5} />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-amber-900">검토가 필요한 매물이 있습니다</h3>
-                      <p className="text-sm text-amber-700">{stats.pending}개의 매물이 승인 대기 중입니다</p>
-                    </div>
+            <div className="border-2 border-amber-400/40 bg-amber-50 p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-5">
+                  <div className="w-12 h-12 bg-amber-400 flex items-center justify-center flex-shrink-0">
+                    <Clock className="h-6 w-6 text-amber-900" strokeWidth={2.5} />
                   </div>
-                  <Button
-                    variant="outline"
-                    className="border-amber-300 text-amber-700 hover:bg-amber-100"
-                    onClick={() => router.push("/admin/properties?status=pending")}
-                  >
-                    검토하기
-                  </Button>
+                  <div>
+                    <h3 className="text-lg font-bold tracking-tight text-amber-900 mb-1">
+                      검토가 필요한 매물이 있습니다
+                    </h3>
+                    <p className="text-sm font-medium text-amber-800">
+                      <span className="font-bold">{stats.pending}개</span>의 매물이 승인 대기 중입니다
+                    </p>
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="border-2 border-amber-700 text-amber-900 hover:bg-amber-700 hover:text-amber-50 font-bold uppercase tracking-wider transition-all"
+                  onClick={() => router.push("/admin/properties?status=pending")}
+                >
+                  검토하기
+                </Button>
+              </div>
+            </div>
           )}
           {stats.supplement > 0 && (
-            <Card className="border-orange-200 bg-orange-50/50">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-orange-100 rounded-xl">
-                      <AlertTriangle className="h-6 w-6 text-orange-600" strokeWidth={1.5} />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-orange-900">보완이 필요한 매물이 있습니다</h3>
-                      <p className="text-sm text-orange-700">{stats.supplement}개의 매물이 호스트 보완 대기 중입니다</p>
-                    </div>
+            <div className="border-2 border-orange-400/40 bg-orange-50 p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-5">
+                  <div className="w-12 h-12 bg-orange-400 flex items-center justify-center flex-shrink-0">
+                    <AlertTriangle className="h-6 w-6 text-orange-900" strokeWidth={2.5} />
                   </div>
-                  <Button
-                    variant="outline"
-                    className="border-orange-300 text-orange-700 hover:bg-orange-100"
-                    onClick={() => router.push("/admin/properties?status=supplement")}
-                  >
-                    확인하기
-                  </Button>
+                  <div>
+                    <h3 className="text-lg font-bold tracking-tight text-orange-900 mb-1">
+                      보완이 필요한 매물이 있습니다
+                    </h3>
+                    <p className="text-sm font-medium text-orange-800">
+                      <span className="font-bold">{stats.supplement}개</span>의 매물이 호스트 보완 대기 중입니다
+                    </p>
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="border-2 border-orange-700 text-orange-900 hover:bg-orange-700 hover:text-orange-50 font-bold uppercase tracking-wider transition-all"
+                  onClick={() => router.push("/admin/properties?status=supplement")}
+                >
+                  확인하기
+                </Button>
+              </div>
+            </div>
           )}
         </div>
       )}

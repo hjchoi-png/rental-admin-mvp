@@ -9,33 +9,46 @@ export default function AdminLayout({
 }) {
   return (
     <div className="min-h-screen bg-background">
-      {/* 상단 오렌지 바 */}
-      <div className="h-1 bg-primary" />
+      {/* 상단 오렌지 바 - 더 두껍게 */}
+      <div className="h-1.5 bg-primary" />
 
-      {/* 고정 헤더 */}
-      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b shadow-sm">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between h-14">
-            {/* 왼쪽: 로고 */}
-            <Link href="/admin" className="flex items-center gap-2 text-lg font-bold text-primary">
-              <Home className="h-5 w-5" strokeWidth={1.5} />
-              <span>단기임대</span>
-              <span className="text-[11px] bg-primary/10 text-primary px-2 py-0.5 rounded-full ml-1 font-semibold">Admin</span>
+      {/* Brutalist 고정 헤더 */}
+      <header className="sticky top-0 z-50 bg-background border-b-2 border-border">
+        <div className="container mx-auto px-6">
+          <div className="flex items-center justify-between h-16">
+            {/* 왼쪽: 로고 - 심플하게 */}
+            <Link href="/admin" className="flex items-center gap-3 group">
+              <div className="w-8 h-8 bg-primary flex items-center justify-center transition-transform group-hover:scale-110">
+                <Home className="h-5 w-5 text-primary-foreground" strokeWidth={2.5} />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xl font-bold tracking-tight">단기임대</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest border border-foreground px-1.5 py-0.5">Admin</span>
+              </div>
             </Link>
 
-            {/* 중앙: 네비게이션 */}
-            <nav className="hidden md:flex items-center gap-1">
-              <Link href="/admin" className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-primary px-3 py-2 rounded-lg hover:bg-primary/5 transition-colors">
-                <LayoutDashboard className="h-4 w-4" strokeWidth={1.5} />
+            {/* 중앙: 네비게이션 - 미니멀 */}
+            <nav className="hidden md:flex items-center gap-8">
+              <Link
+                href="/admin"
+                className="relative text-sm font-semibold uppercase tracking-wider text-foreground/60 hover:text-foreground transition-colors group py-1"
+              >
                 대시보드
+                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-primary transition-all group-hover:w-full"></span>
               </Link>
-              <Link href="/admin/properties" className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-primary px-3 py-2 rounded-lg hover:bg-primary/5 transition-colors">
-                <Building2 className="h-4 w-4" strokeWidth={1.5} />
+              <Link
+                href="/admin/properties"
+                className="relative text-sm font-semibold uppercase tracking-wider text-foreground/60 hover:text-foreground transition-colors group py-1"
+              >
                 매물 관리
+                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-primary transition-all group-hover:w-full"></span>
               </Link>
-              <Link href="/admin/cs-chatbot" className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-primary px-3 py-2 rounded-lg hover:bg-primary/5 transition-colors">
-                <MessageCircle className="h-4 w-4" strokeWidth={1.5} />
+              <Link
+                href="/admin/cs-chatbot"
+                className="relative text-sm font-semibold uppercase tracking-wider text-foreground/60 hover:text-foreground transition-colors group py-1"
+              >
                 CS 챗봇
+                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-primary transition-all group-hover:w-full"></span>
               </Link>
             </nav>
 
@@ -45,8 +58,8 @@ export default function AdminLayout({
         </div>
       </header>
 
-      {/* 본문 */}
-      <main className="container mx-auto px-4 py-6">{children}</main>
+      {/* 본문 - 더 넉넉한 여백 */}
+      <main className="container mx-auto px-6 py-10">{children}</main>
     </div>
   )
 }

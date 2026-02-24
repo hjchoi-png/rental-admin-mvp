@@ -20,13 +20,12 @@ const config = {
     extend: {
       fontFamily: {
         sans: [
-          "var(--font-inter)",
+          "var(--font-dm-sans)",
           "Pretendard Variable",
           "Pretendard",
           "-apple-system",
           "BlinkMacSystemFont",
           "system-ui",
-          "Roboto",
           "sans-serif",
         ],
         mono: [
