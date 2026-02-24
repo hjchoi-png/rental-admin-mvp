@@ -129,8 +129,8 @@ export const STATUS_VARIANTS: Record<PropertyStatus, "default" | "secondary" | "
 }
 
 export const STATUS_LABELS: Record<PropertyStatus, string> = {
-  approved: "승인됨",
+  approved: "승인",
   pending: "검토 대기",
-  rejected: "반려됨",
+  rejected: "반려",
   supplement: "보완 필요",
 }

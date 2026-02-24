@@ -1106,8 +1106,8 @@ function PropertiesAdminPage() {
             { key: "all", label: "전체" },
             { key: "pending", label: "검토 대기" },
             { key: "supplement", label: "보완 필요" },
-            { key: "approved", label: "승인됨" },
-            { key: "rejected", label: "반려됨" },
+            { key: "approved", label: "승인" },
+            { key: "rejected", label: "반려" },
           ] as const).map(({ key, label }) => (
             <button
               key={key}
